@@ -1,0 +1,230 @@
+/*
+ * Room.h
+ *
+ *  Created on: 2021年2月10日
+ *      Author: san
+ */
+
+#ifndef LANDLORDS_COMMON_ENTITY_ROOM_H_
+#define LANDLORDS_COMMON_ENTITY_ROOM_H_
+
+#include "enums/PokerBasic.h"
+#include "ClientSide.h"
+#include "enums/RoomStatus.h"
+#include "enums/RoomType.h"
+#include "PokerSell.h"
+
+#include <string>
+#include <map>
+
+class Room {
+public:
+	typedef std::map<int, ClientSide*> ClientSideMap;
+	typedef std::vector<ClientSide*> ClientSideVec;
+
+	long getCreateTime()
+	{
+		return createTime_;
+	}
+
+	void setCreateTime(long createTime)
+	{
+			createTime_ = createTime;
+	}
+
+	int getDifficultyCoefficient()
+	{
+		return difficultyCoefficient_;
+	}
+
+	void setDifficultyCoefficient(int difficultyCoefficient)
+	{
+		difficultyCoefficient_ = difficultyCoefficient;
+	}
+
+
+	RoomType getType()
+	{
+		return type_;
+	}
+
+	void setType(RoomType type)
+	{
+		type_ = type;
+	}
+
+	PokerSell &getLastPokerShell()
+	{
+		return lastPokerSell_;
+	}
+
+	void setLastPokerShell(const PokerSell &lastPokerSell)
+	{
+		lastPokerSell_ = lastPokerSell;
+	}
+
+	int getCurrentSellClient()
+	{
+		return currentSellClient_;
+	}
+
+	void setCurrentSellClient(int currentSellClient)
+	{
+		currentSellClient_ = currentSellClient;
+	}
+
+
+
+	int getId()
+	{
+		return id_;
+	}
+
+	void setId(int id)
+	{
+		id_ = id;
+	}
+
+	RoomStatus getStatus()
+	{
+		return status_;
+	}
+
+	void setStatus(RoomStatus status)
+	{
+		status_ = status;
+	}
+
+	ClientSideVec &getClientSideList()
+	{
+		return clientSideVec_;
+	}
+
+	void setClientSideList(ClientSideVec clientSideList)
+	{
+		clientSideVec_ = clientSideList;
+	}
+
+	ClientSideMap &getClientSideMap()
+	{
+		return clientSideMap_;
+	}
+
+	void setClientSideMap(const ClientSideMap &clientSideMap)
+	{
+		clientSideMap_ = clientSideMap;
+	}
+
+	std::vector<Poker> *getLoadlordPokers()
+	{
+		return &landlordPokers_;
+	}
+
+	void setLandlordPokers(const std::vector<Poker> &landlordPokers)
+	{
+		landlordPokers_ = landlordPokers;
+	}
+
+	std::string getRoomOwner()
+	{
+		return roomOwner_;
+	}
+
+	void setRoomOwner(const std::string roomOwner)
+	{
+		roomOwner_ = roomOwner;
+	}
+
+	int getFirstClient()
+	{
+		return firstSellClient_;
+	}
+
+	void setFirstSellClient(int firstSellClient)
+	{
+		firstSellClient_ = firstSellClient;
+	}
+
+	std::vector<ClientSide> getWatchList()
+	{
+		return watcherList_;
+	}
+
+	void setLandlordId(int landlordId)
+	{
+		landlordId_ = landlordId;
+	}
+
+	int getLandlordId()
+	{
+		return landlordId_;
+	}
+
+	int getLastSellClient()
+	{
+		return lastSellClient_;
+	}
+
+	void setLastSellClient(int lastSellClient)
+	{
+		lastSellClient_ = lastSellClient;
+	}
+
+	std::vector<Poker> getLandlordPokers()
+	{
+		return landlordPokers_;
+	}
+
+	void init()
+	{
+		roomOwner_ = "";
+		status_ = RoomStatus::BLANK;
+		type_ = RoomType::PVE;
+		clientSideMap_ = ClientSideMap();
+		clientSideVec_ = ClientSideVec();
+		landlordPokers_ = std::vector<Poker>();
+		lastPokerSell_ = PokerSell(SellType(0), std::vector<Poker>(), 0);
+		difficultyCoefficient_ = 0;
+		lastPokerSell_ = PokerSell(SellType::BOMB, std::vector<Poker>(), 0);
+	}
+
+private:
+	int id_;
+	std::string roomOwner_;
+	RoomStatus status_;
+	RoomType type_;
+	ClientSideMap clientSideMap_;
+	ClientSideVec clientSideVec_;
+
+	int landlordId_ = -1;
+	std::vector<Poker> landlordPokers_;
+
+	PokerSell lastPokerSell_;
+
+	int lastSellClient_ = -1;
+	int currentSellClient_ = -1;
+	int difficultyCoefficient_;
+
+	long lastFlushTime_ = 0;
+
+	long createTime_ = 0;
+
+	int firstSellClient_ = 0;
+
+//	int landlordId = -1;
+
+	std::vector<ClientSide> watcherList_ = std::vector<ClientSide>();
+
+
+public:
+	Room(): Room(0){};
+	Room(int id)
+	:id_ (id), lastPokerSell_(PokerSell(SellType::BOMB, std::vector<Poker>(), 0))
+	{
+		// TODO Auto-generated constructor stub
+		init();
+	}
+	virtual ~Room(){};
+};
+
+#endif /* LANDLORDS_COMMON_ENTITY_ROOM_H_ */

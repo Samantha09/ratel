@@ -1,0 +1,165 @@
+/*
+ * PokerHelper.h
+ *
+ *  Created on: 2021年2月7日
+ *      Author: san
+ */
+
+#ifndef LANDLORDS_COMMON_POKERHELPER_H_
+#define LANDLORDS_COMMON_POKERHELPER_H_
+
+#include <vector>
+#include <functional>
+#include "SellType.h"
+#include "PokerSell.h"
+#include "Poker.h"
+#include <unordered_set>
+#include <algorithm>
+
+class PokerSell;
+class Poker;
+class PokerHelper {
+public:
+	typedef std::function<bool (Poker o1, Poker o2)> Comparator;
+
+	PokerHelper();
+	virtual ~PokerHelper();
+
+	static void init()
+	{
+		std::vector<PokerLevel> pokerLevels(PokerBasic::getPokerLevels());
+		std::vector<PokerType> pokerTypes(PokerBasic::getPokerTypes());
+
+		for(PokerLevel level: pokerLevels)
+		{
+			if (level == PokerLevel::LEVEL_BIG_KING)
+			{
+				basePokers_.push_back(Poker(PokerType::BLANK, level));
+				continue;
+			}
+			if (level == PokerLevel::LEVEL_SMALL_KING)
+			{
+				basePokers_.push_back(Poker(PokerType::BLANK, level));
+				continue;
+			}
+			for(PokerType type: pokerTypes)
+			{
+				if(type == PokerType::BLANK)
+				{
+					continue;
+				}
+				basePokers_.push_back(Poker(type, level));
+			}
+		}
+	}
+
+	static std::vector<std::vector<Poker> > distributePoker()
+	{
+		std::random_shuffle(basePokers_.begin(), basePokers_.end());
+		std::vector<std::vector<Poker> > pokersList;
+		std::vector<Poker> pokers1;
+		pokers1.reserve(17);
+		std::copy(basePokers_.begin(),              // 插入到
+				  basePokers_.begin() + 17,
+				  std::back_inserter(pokers1));
+		std::vector<Poker> pokers2;
+		pokers2.reserve(17);
+		std::copy(basePokers_.begin() + 17,              // 插入到
+				  basePokers_.begin() + 34,
+				  std::back_inserter(pokers2));
+		std::vector<Poker> pokers3;
+		pokers3.reserve(17);
+		std::copy(basePokers_.begin() + 34,              // 插入到
+				  basePokers_.begin() + 51,
+				  std::back_inserter(pokers3));
+		std::vector<Poker> pokers4;                  // 底牌
+		pokers4.reserve(3);
+		std::copy(basePokers_.begin() + 51,              // 插入到
+				  basePokers_.end(),
+				  std::back_inserter(pokers4));
+		pokersList.push_back(pokers1);
+		pokersList.push_back(pokers2);
+		pokersList.push_back(pokers3);
+		pokersList.push_back(pokers4);
+		for (auto &pokers: pokersList)
+		{
+			sortPoker(pokers);
+		}
+		return pokersList;
+	}
+
+	static void sortPoker(std::vector<Poker> &pokers);
+
+	static std::string printPokers(std::vector<Poker> pokers);
+
+	// 根据 pokers 生成 pokerShell
+	static PokerSell checkPokerType(std::vector<Poker> pokers);
+
+
+	static std::vector<PokerSell> validSells(PokerSell lastPokerSell, std::vector<Poker> pokers);
+
+	// parses funcs
+	static int parseScore(SellType sellType, int level);
+	static std::vector<PokerSell> parsePokerSells(std::vector<Poker> pokers);
+	static void parsePokerSellStraight(std::vector<PokerSell> pokerSells, SellType sellType);
+
+private:
+	static std::string buildHandStringRounded(std::vector<Poker> pokers);
+	static void parseArgs(std::vector<PokerSell> &pokerSells,
+			PokerSell pokerSell,
+			int deep,
+			SellType sellType,
+			SellType targetSellType)
+	{
+		std::unordered_set<int> existLevelSet{};
+		for (auto p: *(pokerSell.getSellPokers()))
+		{
+			existLevelSet.insert(p.getLevel());
+		}
+		parseArgs(existLevelSet, pokerSells, std::unordered_set<std::vector<Poker>*>(), pokerSell, deep, sellType, targetSellType);
+	}
+
+	static void parseArgs(std::unordered_set<int> existLevelSet,
+			std::vector<PokerSell> pokerSells,
+			std::unordered_set<std::vector<Poker>*> pokersList,
+			PokerSell pokerSell,
+			int deep, SellType sellType, SellType targetSellType)
+	{
+		if (deep == 0)
+		{
+			std::vector<Poker> allPokers{};
+			std::copy((*pokerSell.getSellPokers()).begin(),              // 插入到
+					  (*pokerSell.getSellPokers()).end(),
+					  std::back_inserter(allPokers));
+			for (auto ps: pokersList)
+			{
+				std::copy((*ps).begin(),              // 插入到
+						  (*ps).end(),
+						  std::back_inserter(allPokers));
+			}
+			pokerSells.push_back(PokerSell(targetSellType, allPokers, pokerSell.getCoreLevel()));
+		}
+
+		for (int index = 0; index < pokerSells.size(); ++index)
+		{
+			PokerSell subSell = pokerSells.at(index);
+			if (subSell.getSellType() == sellType &&
+				existLevelSet.find(subSell.getCoreLevel()) != existLevelSet.end())
+			{
+				pokersList.insert(subSell.getSellPokers());
+				existLevelSet.insert(subSell.getCoreLevel());
+				parseArgs(existLevelSet, pokerSells, pokersList, pokerSell,
+						  deep - 1, sellType, targetSellType);
+				existLevelSet.erase(subSell.getCoreLevel());
+				pokersList.erase(subSell.getSellPokers());
+			}
+		}
+	}
+
+private:
+	static std::vector<Poker> basePokers_;
+	Comparator compare_;
+};
+
+
+#endif /* LANDLORDS_COMMON_POKERHELPER_H_ */

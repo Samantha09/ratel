@@ -1,0 +1,1 @@
+g++ server.cc ../landlords-common/protobuf/codec.cc ../landlords-common/protobuf/query.pb.cc ../landlords-common/PokerHelper.cc ../landlords-common/PokerBasic.cc  -o server -I ../landlords-common/ -lprotobuf -lz -lmuduo_base -lpthread -lmuduo_net  -L/home/san/apps/build/debug-install-cpp11/lib
