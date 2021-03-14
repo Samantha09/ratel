@@ -43,7 +43,8 @@ public:
 	{
 		LOG_DEBUG << "howToPlayPokers";
 		LOG_DEBUG << "difficultyCoefficient" << difficultyCoefficient;
-		return PlayPokersFuncMap[difficultyCoefficient](lastPokerSell, robot);
+		return PokerSell(SellType::YAO_BU_QI, std::vector<Poker>(), 0);
+//		return PlayPokersFuncMap[difficultyCoefficient](*lastPokerSell, robot);
 	}
 
 	static bool howToChooseLandlord(int difficultyCoefficient,

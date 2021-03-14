@@ -8,8 +8,25 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include test/robot/subdir.mk
+-include test/helper/serialization/subdir.mk
+-include test/helper/subdir.mk
+-include test/event/subdir.mk
+-include test/entity/subdir.mk
+-include test/boostt/subdir.mk
+-include test/subdir.mk
+-include landlords-server/robot/subdir.mk
+-include landlords-server/event/subdir.mk
 -include landlords-server/subdir.mk
--include landlords-common/subdir.mk
+-include landlords-common/robot/subdir.mk
+-include landlords-common/protobuf/subdir.mk
+-include landlords-common/helper/subdir.mk
+-include landlords-common/enums/subdir.mk
+-include landlords-common/entity/subdir.mk
+-include landlords-common/backup/subdir.mk
+-include landlords-common/back/subdir.mk
+-include landlords-client/event/subdir.mk
+-include landlords-client/subdir.mk
 -include subdir.mk
 -include objects.mk
 

@@ -79,16 +79,17 @@ class QueryServer : noncopyable
     ServerContains::CLIENT_SIDE_MAP.insert(std::make_pair(clientSide->getId(), clientSide));
 
 //    pushToClient(conn, ClientEventCode::CODE_CLIENT_CONNECT, std::to_string(clientSide.getId()));
-    pushToClient(conn, ClientEventCode::CODE_CLIENT_NICKNAME_SET, "");
+    pushToClient(conn, ClientEventCode::CODE_CLIENT_NICKNAME_SET, MapHelper());
   }
 
-  void pushToClient(const TcpConnectionPtr& conn, ClientEventCode code, const std::string &data)
+  void pushToClient(const TcpConnectionPtr& conn, ClientEventCode code, const MapHelper &data)
   {
 	  Answer answer;
+	  std::string result = SerializeHelper::SerializeToString<MapHelper>(data);
 	  answer.set_answerer("san");
 	  answer.set_questioner("san");
 	  answer.set_id(int(code));
-	  answer.add_solution(data);
+	  answer.add_solution(result);
 	  codec_.send(conn, answer);
   }
 
@@ -108,7 +109,8 @@ class QueryServer : noncopyable
 	    LOG_INFO << "onQuery:\n" << message->GetTypeName() << message->DebugString();
 	    LOG_INFO << "onQuery:\n";
 		// FIXME： 我也不知道为什么。。。
-	    serverEventListener(conn, ServerEventCode(message->id()), message->question(0));
+	    MapHelper result = SerializeHelper::parseStringToData<MapHelper>(message->question(0));
+	    serverEventListener(conn, ServerEventCode(message->id()), result);
   }
 
   void onAnswer(const muduo::net::TcpConnectionPtr& conn,
@@ -138,13 +140,7 @@ int main(int argc, char* argv[])
 	PokerHelper::init();
 
 	// FIXME: 不知道为啥，总之莫名其妙
-	SerializeHelper sl;
-	{   /*  不然就报错  */
-		ClientTransferData temp;
-		std::string res = SerializeHelper::SerializeToString(temp);
-		ClientTransferData momingqimiao =
-				SerializeHelper::parseStringToData<ClientTransferData>(res);
-	}
+//	SerializeHelper sl;
 	  /*
    * 静态对象总是会莫名其妙
    */

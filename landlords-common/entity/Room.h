@@ -24,154 +24,182 @@ public:
 
 	long getCreateTime()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return createTime_;
 	}
 
 	void setCreateTime(long createTime)
 	{
-			createTime_ = createTime;
+		muduo::MutexLockGuard lock(mutex_);
+		createTime_ = createTime;
 	}
 
 	int getDifficultyCoefficient()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return difficultyCoefficient_;
 	}
 
 	void setDifficultyCoefficient(int difficultyCoefficient)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		difficultyCoefficient_ = difficultyCoefficient;
 	}
 
 
 	RoomType getType()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return type_;
 	}
 
 	void setType(RoomType type)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		type_ = type;
 	}
 
 	PokerSell &getLastPokerShell()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return lastPokerSell_;
 	}
 
 	void setLastPokerShell(const PokerSell &lastPokerSell)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		lastPokerSell_ = lastPokerSell;
 	}
 
 	int getCurrentSellClient()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return currentSellClient_;
 	}
 
 	void setCurrentSellClient(int currentSellClient)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		currentSellClient_ = currentSellClient;
 	}
 
-
-
 	int getId()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return id_;
 	}
 
 	void setId(int id)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		id_ = id;
 	}
 
 	RoomStatus getStatus()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return status_;
 	}
 
 	void setStatus(RoomStatus status)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		status_ = status;
 	}
 
 	ClientSideVec &getClientSideList()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return clientSideVec_;
 	}
 
 	void setClientSideList(ClientSideVec clientSideList)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		clientSideVec_ = clientSideList;
 	}
 
 	ClientSideMap &getClientSideMap()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return clientSideMap_;
 	}
 
 	void setClientSideMap(const ClientSideMap &clientSideMap)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		clientSideMap_ = clientSideMap;
 	}
 
 	std::vector<Poker> *getLoadlordPokers()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return &landlordPokers_;
 	}
 
 	void setLandlordPokers(const std::vector<Poker> &landlordPokers)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		landlordPokers_ = landlordPokers;
 	}
 
 	std::string getRoomOwner()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return roomOwner_;
 	}
 
 	void setRoomOwner(const std::string roomOwner)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		roomOwner_ = roomOwner;
 	}
 
 	int getFirstClient()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return firstSellClient_;
 	}
 
 	void setFirstSellClient(int firstSellClient)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		firstSellClient_ = firstSellClient;
 	}
 
 	std::vector<ClientSide> getWatchList()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return watcherList_;
 	}
 
 	void setLandlordId(int landlordId)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		landlordId_ = landlordId;
 	}
 
 	int getLandlordId()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return landlordId_;
 	}
 
 	int getLastSellClient()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return lastSellClient_;
 	}
 
 	void setLastSellClient(int lastSellClient)
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		lastSellClient_ = lastSellClient;
 	}
 
 	std::vector<Poker> getLandlordPokers()
 	{
+		muduo::MutexLockGuard lock(mutex_);
 		return landlordPokers_;
 	}
 
@@ -189,6 +217,7 @@ public:
 	}
 
 private:
+	muduo::MutexLock mutex_;
 	int id_;
 	std::string roomOwner_;
 	RoomStatus status_;

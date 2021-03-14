@@ -15,6 +15,7 @@
 #include "protobuf/codec.h"
 #include "protobuf/dispatcher.h"
 #include "protobuf/query.pb.h"
+#include "helper/SerializeHelper.h"
 
 #include "muduo/base/Logging.h"
 
@@ -22,13 +23,13 @@ class ServerEventListener {
 public:
 
 	typedef void(*SolveFunc)( ProtobufCodec *codec,
-			 const muduo::net::TcpConnectionPtr &conn,
-			 ServerEventCode code, const std::string &data);
+			 	 	 	 	  const muduo::net::TcpConnectionPtr &conn,
+							  const MapHelper &mapHelper);
 
 	ServerEventListener();
 	// operator ()
 	void operator() (const muduo::net::TcpConnectionPtr &conn,
-			 ServerEventCode code, const std::string &data)
+			 ServerEventCode code, const MapHelper &mapHelper)
 	{
 		LOG_INFO << "ServerEventListener";
 	    auto answerFuncIter = LISTENER_MAP.find(code);
@@ -39,7 +40,7 @@ public:
 	    	conn->shutdown();
 	    }
 	    SolveFunc answerFunc = answerFuncIter->second;
-	    (*answerFunc)(&codec_, conn, code, data);
+	    (*answerFunc)(&codec_, conn, mapHelper);
 	}
 	virtual ~ServerEventListener(){}
 

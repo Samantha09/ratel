@@ -30,11 +30,10 @@ using std::placeholders::_3;
 class ClientEventListener {
 public:
 
-	typedef void(*settleEvent)(const muduo::net::TcpConnectionPtr &conn,
-				 ProtobufCodec *codec,
-				 int clientId,
-				 ClientEventCode code,
-				 const std::string &data);
+	typedef void(*settleEvent)(ProtobufCodec *codec,
+				               const muduo::net::TcpConnectionPtr &conn,
+							   int clientId,
+							   const MapHelper &data);
 
 	// 构造函数和析构函数
 	// 构造函数
@@ -51,34 +50,27 @@ public:
 		LISTENER_MAP[ClientEventCode::CODE_GAME_LANDLORD_CONFIRM] = ClientEventListener_CODE_GAME_LANDLOAD_CONFIRM;
 		LISTENER_MAP[ClientEventCode::CODE_GAME_POKER_PLAY_REDIRECT] = ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT;
 		LISTENER_MAP[ClientEventCode::CODE_GAME_POKER_PLAY] = ClientEventListener_CODE_GAME_POKER_PLAY;
+		LISTENER_MAP[ClientEventCode::CODE_GAME_LANDLORD_ELECT] = ClientEventListener_CODE_GAME_LANDLOAD_ELECT;
+		LISTENER_MAP[ClientEventCode::CODE_GAME_POKER_PLAY_ORDER_ERROR] = ClientEventListener_CODE_GAME_POKER_PLAY_ORDER_ERROR;
 	}
 	virtual ~ClientEventListener(){}
 
 	void operator() (const muduo::net::TcpConnectionPtr &conn, int clientId,
-			ClientEventCode code ,const std::string &data)
+					 ClientEventCode code ,const MapHelper &data)
 	{
 
 		auto answerFuncIter = LISTENER_MAP.find(code);
 		if (answerFuncIter == LISTENER_MAP.end())
 		{
 			LOG_INFO << "CODE_CLIENT_EXIT " << int(code);
-			pushToServer(conn, ServerEventCode::CODE_CLIENT_EXIT, "unknown order");
+			pushDataToServer(&codec_, conn,
+							 ServerEventCode::CODE_CLIENT_EXIT,
+					         MapHelper());
 		}
 		else
 		{
-			answerFuncIter->second(conn, &codec_, clientId, code, data);
+			answerFuncIter->second(&codec_, conn, clientId, data);
 		}
-	}
-
-	void pushToServer(const muduo::net::TcpConnectionPtr &conn,
-					  ServerEventCode code,
-					  const std::string &data = "")
-	{
-		muduo::Query query;
-		query.set_id(int(code));
-		query.add_question(data);
-		query.set_questioner("chensuo");
-	    codec_.send(conn, query);
 	}
 
 	// 根据code返回相应的函数对象

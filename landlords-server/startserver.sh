@@ -1,1 +1,0 @@
-g++ main.cc RatelServer.cc ../landlords-common/PokerBasic.cc ../landlords-common/PokerHelper.cc -o RatelServer -lmuduo_base -lmuduo_net -lmuduo_http -lpthread  -I ~/apps/build/debug-install-cpp11/include/ -L/home/san/apps/build/debug-install-cpp11/lib/ -I ../landlords-common

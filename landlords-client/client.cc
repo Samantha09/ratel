@@ -71,8 +71,8 @@ class QueryClient : noncopyable
 //	  else
 
 //	    MutexLockGuard lock(mutex_);
-	  std::string solutions = message->solution(0);
-	  clientEventListener(conn, id_, ClientEventCode(message->id()), solutions);
+	  MapHelper result = SerializeHelper::parseStringToData<MapHelper>(message->solution(0));
+	  clientEventListener(conn, id_, ClientEventCode(message->id()), result);
 
 //    LOG_INFO << "onAnswer:\n" << message->GetTypeName() << message->DebugString();
   }
@@ -84,19 +84,19 @@ class QueryClient : noncopyable
     LOG_INFO << "onEmpty: " << message->GetTypeName();
   }
 
-	void pushToServer(const muduo::net::TcpConnectionPtr &conn,
-					  ServerEventCode code,
-					  const std::string &data = "")
-	{
-//		MutexLockGuard lock(mutex_);
-		ClientTransferData res(id_, code, data);
-		std::string result = SerializeHelper::SerializeToString<ClientTransferData>(res);
-		muduo::Query query;
-		query.set_id(int(code));
-		query.set_questioner("san");
-		query.add_question(result);
-	    codec_.send(conn, query);
-	}
+//	void pushToServer(const muduo::net::TcpConnectionPtr &conn,
+//					  ServerEventCode code,
+//					  const std::string &data = "")
+//	{
+////		MutexLockGuard lock(mutex_)
+//		ClientTransferData res(id_, code, data);
+//		std::string result = SerializeHelper::SerializeToString<ClientTransferData>(res);
+//		muduo::Query query;
+//		query.set_id(int(cod
+//		query.set_questioner("san");
+//		query.add_question(result);
+//	    codec_.send(conn, query);
+//	}
 
 
 

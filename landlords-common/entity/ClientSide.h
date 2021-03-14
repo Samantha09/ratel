@@ -14,6 +14,7 @@
 #include "enums/ClientStatus.h"
 #include "enums/ClientRole.h"
 #include "enums/ClientType.h"
+#include <memory>
 
 #include <string>
 
@@ -36,13 +37,15 @@ public:
 		status_ = cs.status_;
 		role_ = cs.role_;
 		type_ = cs.type_;
+//		pre_ = new ClientSide(*cs.pre_);
+//		next_ = new ClientSide(*cs.next_);
 		pre_ = cs.pre_;
 		next_ = cs.next_;
 	}
 	~ClientSide(){
-		delete pre_;
-		delete next_;
-
+//		delete pre_;
+//		delete next_;
+		// FIXME 内存泄露
 	};
 
 	template<class Archive>

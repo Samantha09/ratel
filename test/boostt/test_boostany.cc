@@ -11,29 +11,20 @@
 #include <string>
 #include "helper/SerializeHelper.h"
 
-struct temp {
-
-	temp()
-		: id(1), data("")
-	{
-
-	}
-
-	int id;
-	std::string data;
-};
 
 int main()
 {
-	std::vector<boost::any> objMap;
-	temp t;
-	std::unordered_map<int, temp> it {std::make_pair(1, t)};
-	objMap.push_back(it);
-	std::string result =  SerializeHelper::SerializeToString<std::vector<boost::any> >(objMap);
-	std::vector<boost::any> data = SerializeHelper::parseStringToData<std::vector<boost::any> >(result);
-//	std::cout << data.at(0);
-	auto r = data.at(0);
-	std::cout << r.type();
+	MapHelper mh;
+	mh.put("id", "12345");
+	std::vector<Poker> pokers;
+	pokers.push_back(Poker(PokerType::CLUB, PokerLevel::LEVEL_10));
+	mh.put("pokers", pokers);
+	mh.put("clientId", 1);
+	std::string data = SerializeHelper::SerializeToString<MapHelper>(mh);
+	MapHelper result = SerializeHelper::parseStringToData<MapHelper>(data);
+	int res;
+	result.get("clientId", res);
+	std::cout << res;
 }
 
 

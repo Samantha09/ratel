@@ -23,47 +23,49 @@ public:
 	static PokerSell howToPlayPokers(PokerSell &lastPokerSell,
 							  ClientSide &robot)
 	{
-		if (  // FIXME
-		    lastPokerSell.getSellType() == SellType::KING_BOMB)
-		{
-			// FIXME
-			return PokerSell(SellType::ILLEGAL, std::vector<Poker>(), 0);
-		}
-
-		std::vector<PokerSell> sells = PokerHelper::parsePokerSells(robot.getPokers());
-		return sells.at(random(sells.size()));
-
-		for (PokerSell &sell: sells)
-		{
-			if(sell.getSellType() == lastPokerSell.getSellType())
-			{
-				if(sell.getScore() > lastPokerSell.getScore() &&
-				   sell.getSellPokers()->size() == lastPokerSell.getSellPokers()->size())
-				{
-					return sell;
-				}
-			}
-		}
-
-		if(lastPokerSell.getSellType() != SellType::BOMB)
-		{
-			for (PokerSell &sell: sells)
-			{
-				if (sell.getSellType() == SellType::BOMB)
-				{
-					return sell;
-				}
-			}
-		}
-
-		for(PokerSell sell: sells)
-		{
-			if(sell.getSellType() == SellType::KING_BOMB) {
-				return sell;
-			}
-		}
+		LOG_DEBUG << "howToPlayPokers";
+//		LOG_DEBUG << "lastPokerSell.getSellType(): " << lastPokerSell.getSellType();
+//		if (  // FIXME
+//		    lastPokerSell.getSellType() == SellType::KING_BOMB)
+//		{
+//			// FIXME
+//			return PokerSell(SellType::YAO_BU_QI, std::vector<Poker>(), 0);
+//		}
+//
+//		std::vector<PokerSell> sells = PokerHelper::parsePokerSells(robot.getPokers());
+//		return sells.at(random(sells.size()));
+//
+//		for (PokerSell &sell: sells)
+//		{
+//			if(sell.getSellType() == lastPokerSell.getSellType())
+//			{
+//				if(sell.getScore() > lastPokerSell.getScore() &&
+//				   sell.getSellPokers()->size() == lastPokerSell.getSellPokers()->size())
+//				{
+//					return sell;
+//				}
+//			}
+//		}
+//
+//		if(lastPokerSell.getSellType() != SellType::BOMB)
+//		{
+//			for (PokerSell &sell: sells)
+//			{
+//				if (sell.getSellType() == SellType::BOMB)
+//				{
+//					return sell;
+//				}
+//			}
+//		}
+//
+//		for(PokerSell sell: sells)
+//		{
+//			if(sell.getSellType() == SellType::KING_BOMB) {
+//				return sell;
+//			}
+//		}
 		// FIXME
-		return PokerSell(SellType::ILLEGAL, std::vector<Poker>(), 0);
+		return PokerSell(SellType::YAO_BU_QI, std::vector<Poker>(), 0);
 	}
 
 	static bool howToChooseLandlord(std::vector<Poker> leftPokers,

@@ -30,6 +30,7 @@ enum SellType {
 	THREE_STRAIGHT_WITH_DOUBLE,    // 飞机带对牌
 	FOUR_STRAIGHT_WITH_SINGLE,     // 四顺子带单
 	FOUR_STRAIGHT_WITH_DOUBLE,     // 四顺子带对
+	YAO_BU_QI,
 };
 
 const std::vector<std::string> SHELLTYPE = { "非合法", "炸弹", "王炸", "单个牌", "对子", "三张牌",

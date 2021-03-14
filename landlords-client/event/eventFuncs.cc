@@ -12,67 +12,60 @@
 //muduo::MutexLock mutex_1;
 
 
-void pushDataToServer(const muduo::net::TcpConnectionPtr &conn,
-						ProtobufCodec *codec,
-						int clientId,
-						ServerEventCode code,
-						const std::string &data,
-						std::vector<PokerLevel> levels = std::vector<PokerLevel>())
+void pushDataToServer(ProtobufCodec *codec,
+					  const muduo::net::TcpConnectionPtr &conn,
+					  ServerEventCode code,
+					  const MapHelper &mapHelper)
 {
-	if (code == ServerEventCode::CODE_GAME_POKER_PLAY_REDIRECT)
-	{
-		muduo::Query query;
-		query.set_id(int(code));
-		query.set_questioner("san");
-		query.add_question(data);
-		codec->send(conn, query);
-	}
-	else
-	{
-		ClientTransferData res(clientId, code, data, levels);
-		std::string result = SerializeHelper::SerializeToString<ClientTransferData>(res);
-		muduo::Query query;
-		query.set_id(int(code));
-		query.set_questioner("san");
-		query.add_question(result);
-	    codec->send(conn, query);
-	}
+//	  LOG_DEBUG << "pushDataToClient " << int(code);
+	  LOG_DEBUG << SERVEREVENTCODE[int(code)];
+	  std::string result = SerializeHelper::SerializeToString<MapHelper>(mapHelper);
+	  muduo::Query query;
+	  query.set_questioner("san");
+	  query.set_id(int(code));
+	  query.add_question(result);
+	  codec->send(conn, query);
 }
 
 // CODE_CLIENT_EXIT
-void ClientEventListener_CODE_CLIENT_EXIT(const muduo::net::TcpConnectionPtr &conn,
-										  ProtobufCodec *codec,
+void ClientEventListener_CODE_CLIENT_EXIT(ProtobufCodec *codec,
+										  const muduo::net::TcpConnectionPtr &conn,
 										  int clientId,
-										  ClientEventCode code,
-										  const std::string &data)
+										  const MapHelper &data)
 {
+	LOG_DEBUG << "CODE_CLIENT_EXIT";
 	exit(0);
 }
 
 // SHOW_POKERS
-void ClientEventListener_CODE_SHOW_POKERS(const muduo::net::TcpConnectionPtr &conn,
-										  ProtobufCodec *codec,
+void ClientEventListener_CODE_SHOW_POKERS(ProtobufCodec *codec,
+										  const muduo::net::TcpConnectionPtr &conn,
 										  int clientId,
-		                                  ClientEventCode code,
-										  const std::string &data)
+										  const MapHelper &data)
 {
-	std::cerr << "ClientEventListener_CODE_SHOW_POKERS";
-	CodeShowPokersData result = SerializeHelper::parseStringToData<CodeShowPokersData >(data);
-//	LOG_INFO << "\n" << PokerHelper::printPokers(result.pokers_).c_str();
-//	std::vector<Poker> pokers(result.pokers_);
-	std::string lastSellClientNickname = result.clientNickname;
-	std::string lastSellClientType = (int(result.clientType) ? "PEASANT" : "LANDLORD");
+	LOG_DEBUG << "ClientEventListener_CODE_SHOW_POKERS";
+	std::string lastSellClientNickname = data.get("clientNickname", "");
+	std::string lastSellClientType = (int(data.get("clientType", 0)) ? "PEASANT" : "LANDLORD");
+
 	std::cout << lastSellClientNickname << "[" << lastSellClientType
 			  << "] played: " << std::endl;
-	std::cout << PokerHelper::printPokers(result.lastSellPokers)
+
+	std::vector<Poker> lastPokers = data.get("pokers", std::vector<Poker>());
+
+	std::cout << PokerHelper::printPokers(lastPokers)
 	          << std::endl;
+
+	if (data.get("sellClinetNickname", "") != "")
+	{
+		std::cout << "Next player is: " << data.get("sellClinetNickname", "") << ". Please wait for him to play his combination."
+				  << std::endl;
+	}
 }
 
-void ClientEventListener_CODE_SHOW_OPTIONS(const muduo::net::TcpConnectionPtr &conn,
-										   ProtobufCodec *codec,
+void ClientEventListener_CODE_SHOW_OPTIONS(ProtobufCodec *codec,
+										   const muduo::net::TcpConnectionPtr &conn,
 										   int clientId,
-										   ClientEventCode code,
-										   const std::string &data)
+										   const MapHelper &data)
 {
 	LOG_INFO << "clientId: " << clientId << "\n";
 	printf("Options: \n");
@@ -95,27 +88,26 @@ void ClientEventListener_CODE_SHOW_OPTIONS(const muduo::net::TcpConnectionPtr &c
 		switch(atoi(line.c_str()))
 		{
 		case 1:
-			ClientEventListener_CODE_SHOW_OPTION_PVP(conn, codec, clientId, code, data);
+			ClientEventListener_CODE_SHOW_OPTION_PVP(codec, conn, clientId, data);
 			break;
 		case 2:
-			ClientEventListener_CODE_SHOW_OPTION_PVE(conn, codec, clientId, code, data);
+			ClientEventListener_CODE_SHOW_OPTION_PVE(codec, conn, clientId, data);
 			break;
 		case 3:
-			ClientEventListener_CODE_SHOW_OPTION_SETTING(conn, codec, clientId, code, data);
+			ClientEventListener_CODE_SHOW_OPTION_SETTING(codec, conn, clientId, data);
 			break;
 		default:
 			printf("Invalid option, please choose again：");
-			ClientEventListener_CODE_SHOW_OPTIONS(conn, codec, clientId, code, data);
+			ClientEventListener_CODE_SHOW_OPTIONS(codec, conn, clientId, data);
 			break;
 		}
 	}
 }
 
-void ClientEventListener_CODE_SHOW_OPTION_PVE(const muduo::net::TcpConnectionPtr &conn,
-											  ProtobufCodec *codec,
+void ClientEventListener_CODE_SHOW_OPTION_PVE(ProtobufCodec *codec,
+											  const muduo::net::TcpConnectionPtr &conn,
 											  int clientId,
-											  ClientEventCode code,
-											  const std::string &data)
+											  const MapHelper &data)
 {
 	printf("PvE: \n");
 	printf("1. Easy Mode \n");
@@ -130,7 +122,7 @@ void ClientEventListener_CODE_SHOW_OPTION_PVE(const muduo::net::TcpConnectionPtr
 	std::transform(line.begin(),line.end(), line.begin(), ::tolower);  // 转换为小写
 	if (line == "back" || line == "b")
 	{
-		ClientEventListener_CODE_SHOW_OPTIONS(conn, codec, clientId, code, data);
+		ClientEventListener_CODE_SHOW_OPTIONS(codec, conn, clientId, data);
 	}
 	else
 	{
@@ -143,25 +135,49 @@ void ClientEventListener_CODE_SHOW_OPTION_PVE(const muduo::net::TcpConnectionPtr
 		}
 		if (0 < atoi(line.c_str()) && atoi(line.c_str()) < 4)
 		{
-			pushDataToServer(conn, codec, clientId, ServerEventCode::CODE_ROOM_CREATE_PVE, "");
+//			LOG_WARN << "choose is not used! in this version!, always be easy mode!!";
+			pushDataToServer(codec, conn,
+							 ServerEventCode::CODE_ROOM_CREATE_PVE,
+							 MapHelper().put("choose", line)
+							 	        .put("clientId", clientId));
 		}
 		else
 		{
 			printf("Invalid option, please choose again：");
-			ClientEventListener_CODE_SHOW_OPTION_PVE(conn, codec, clientId, code, data);
+			ClientEventListener_CODE_SHOW_OPTION_PVE(codec, conn, clientId, data);
 		}
 	}
 }
 
-void ClientEventListener_CODE_GAME_POKER_PLAY_PASS(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec, int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_GAME_POKER_PLAY_PASS(ProtobufCodec *codec,
+												   const muduo::net::TcpConnectionPtr &conn,
+												   int clientId,
+												   const MapHelper &data)
 {
-	LOG_INFO << "pass and show pokers";
-	ClientEventListener_CODE_SHOW_POKERS(conn, codec, clientId, code, data);
+	LOG_DEBUG << "ClientEventListener_CODE_GAME_POKER_PLAY_PASS";
+	std::cout << data.get("clientNickname", "") << " passed. It is now "
+			  << data.get("nextClientNickname", "") << "'s turn"
+			  << std::endl;
+	int turnClientId = data.get("nextClientId", 0);
+
+	assert(turnClientId != 0);
+	assert(data.get("clientNickname", "") != "");
+	assert(data.get("nextClientNickname", "") != "");
+
+	if (clientId == turnClientId)
+	{
+		LOG_DEBUG << "clientId = " << clientId << "\n" << "turnClientId: " << turnClientId;
+		// FIXME: MapHelper()
+		pushDataToServer(codec, conn,
+						 ServerEventCode::CODE_GAME_POKER_PLAY_REDIRECT,
+						 MapHelper().put("clientId", clientId));
+	}
 }
 
-void ClientEventListener_CODE_SHOW_OPTION_SETTING(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec, int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_SHOW_OPTION_SETTING(ProtobufCodec *codec,
+												  const muduo::net::TcpConnectionPtr &conn,
+												  int clientId,
+												  const MapHelper &data)
 {
 	std::vector<Poker> pokers_;
   	Poker poker(PokerType::HEART, PokerLevel::LEVEL_K);
@@ -174,23 +190,24 @@ void ClientEventListener_CODE_SHOW_OPTION_SETTING(const muduo::net::TcpConnectio
   	pokers_.push_back(poker2);
   	pokers_.push_back(poker3);
   	pokers_.push_back(poker4);
-//  	ServerTransferData res(pokers_);
-////  	SerializeHelper::SerializeToString<ServerTransferData>(res);
-//  	ClientEventListener_CODE_SHOW_POKERS(conn, code, SerializeHelper::SerializeToString<ServerTransferData>(res));
 }
 
-void ClientEventListener_CODE_SHOW_OPTION_PVP(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec, int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_SHOW_OPTION_PVP(ProtobufCodec *codec,
+											  const muduo::net::TcpConnectionPtr &conn,
+											  int clientId,
+											  const MapHelper &data)
 {
 
 }
 
-void ClientEventListener_CODE_CLIENT_NICKNAME_SET(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec, int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_CLIENT_NICKNAME_SET(ProtobufCodec *codec,
+												  const muduo::net::TcpConnectionPtr &conn,
+												  int clientId,
+												  const MapHelper &data)
 {
-	if (data.size() > 20)
+	if (data.get("invalidLength", 0) != 0)
 	{
-		std::cout << "Your nickname has invalid length: " << data.size()
+		std::cout << "Your nickname has invalid length: " << data.get("invalidLength", 0)
 				  << std::endl;
 	}
 	std::cout << "Please set your nickname (upto " << 20 << " characters)"
@@ -198,40 +215,46 @@ void ClientEventListener_CODE_CLIENT_NICKNAME_SET(const muduo::net::TcpConnectio
 	std::string nick_name;
 	std::cin >> nick_name;
 	if (nick_name.size() > 20)
-		ClientEventListener_CODE_CLIENT_NICKNAME_SET(conn, codec, clientId, code, nick_name);
+		ClientEventListener_CODE_CLIENT_NICKNAME_SET(codec, conn, clientId, data);
 	else
 	{
-		ClientTransferData result(clientId, ServerEventCode::CODE_CLIENT_NICKNAME_SET, nick_name);
-		std::string res = SerializeHelper::SerializeToString<ClientTransferData>(result);
-		ClientEventListener().pushToServer(conn, ServerEventCode::CODE_CLIENT_NICKNAME_SET, res);
+		pushDataToServer(codec, conn,
+						 ServerEventCode::CODE_CLIENT_NICKNAME_SET,
+						 MapHelper().put("nickName", nick_name)
+						 	 	 	.put("clientId", clientId));
 	}
 }
 
-void ClientEventListener_CODE_GAME_STARTING(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec,  int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_GAME_STARTING(ProtobufCodec *codec,
+										    const muduo::net::TcpConnectionPtr &conn,
+										    int clientId,
+										    const MapHelper &data)
 {
-	ServerTransferData result = SerializeHelper::parseStringToData<ServerTransferData>(data);
+//	ServerTransferData result = SerializeHelper::parseStringToData<ServerTransferData>(data);
 	std::cout << "Game starting! Your cards are: " << std::endl;
-	std::cout << PokerHelper::printPokers(result.pokers) << "\n" << std::endl;
-	ClientEventListener_CODE_GAME_LANDLOAD_ELECT(conn, codec, clientId, code, data);
+	assert(!data.get("pokers", std::vector<Poker>()).empty());
+	std::cout << PokerHelper::printPokers(data.get("pokers", std::vector<Poker>()))
+			  << std::endl;
+	ClientEventListener_CODE_GAME_LANDLOAD_ELECT(codec, conn, clientId, data);
 }
 
-void ClientEventListener_CODE_GAME_LANDLOAD_ELECT(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec, int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_GAME_LANDLOAD_ELECT(ProtobufCodec *codec,
+												  const muduo::net::TcpConnectionPtr &conn,
+												  int clientId,
+												  const MapHelper &data)
 {
-	LOG_INFO << "ClientEventListener_CODE_GAME_LANDLOAD_ELECT";
-	ServerTransferData result = SerializeHelper::parseStringToData<ServerTransferData>(data);
-	int turnClientId = result.nextClientId;
+	LOG_DEBUG << "ClientEventListener_CODE_GAME_LANDLOAD_ELECT";
+//	ServerTransferData result = SerializeHelper::parseStringToData<ServerTransferData>(data);
+	int turnClientId = data.get("nextClientId", 0);
 
-	if (result.preClientNickname != "")
+	if (data.get("preClientNickname", "") != "")
 	{
-		LOG_INFO << "preClientNickname != ''";
-		std::cout << result.preClientNickname << " don't rob the landlord!";
+		assert(data.get("preClientNickname", "") != "");
+		std::cout << data.get("preClientNickname", "") << " don't rob the landlord!";
 	}
 
 	if (turnClientId == clientId)
 	{
-		LOG_INFO << "It's your trun!";
 		std::cout << "It's your turn. Do you want to rob the landlord? [Y/N] (enter [exit|e] to exit current room)"
 				  << std::endl;
 		std::string line;
@@ -241,95 +264,119 @@ void ClientEventListener_CODE_GAME_LANDLOAD_ELECT(const muduo::net::TcpConnectio
 
 		if (line == "exit" || line == "e")
 		{
-			pushDataToServer(conn, codec, clientId, ServerEventCode::CODE_CLIENT_EXIT, "");
+			pushDataToServer(codec, conn,
+							 ServerEventCode::CODE_CLIENT_EXIT,
+							 MapHelper().put("clientId", clientId));
 		}
 		else if (line == "y")
 		{
-			pushDataToServer(conn, codec, clientId,  ServerEventCode::CODE_GAME_LANDLORD_ELECT, "true");
+			LOG_INFO << line;
+
+//			pushDataToServer(codec, conn,
+//							 ServerEventCode::CODE_CLIENT_EXIT,
+//							 MapHelper().put("clientId", clientId)
+//							 	 	 	.put("is_Y", "true"));
+
+			pushDataToServer(codec, conn,
+							 ServerEventCode::CODE_GAME_LANDLORD_ELECT,
+							 MapHelper().put("clientId", clientId)
+							 	 	 	.put("is_Y", "true"));
 		}
 		else if (line == "n")
 		{
-			pushDataToServer(conn, codec, clientId, ServerEventCode::CODE_GAME_LANDLORD_ELECT, "false");
+			pushDataToServer(codec, conn,
+							 ServerEventCode::CODE_GAME_LANDLORD_ELECT,
+							 MapHelper().put("clientId", clientId)
+										.put("is_Y", "false"));
 		}
 		else
 		{
 			std::cout << "Invalid options!" << std::endl;
-			ClientEventListener_CODE_GAME_LANDLOAD_ELECT(conn, codec, clientId, code, data);
+			ClientEventListener_CODE_GAME_LANDLOAD_ELECT(codec, conn, clientId, data);
 		}
 	}
 	else
 	{
-		std::cout << "It's " << result.nextClientNickname << "'s turn. Please wait patiently for his/her confirmation !"
+		assert(data.get("nextClientNickname", "") != "");
+		std::cout << "It's " << data.get("nextClientNickname", "") << "'s turn. Please wait patiently for his/her confirmation !"
 				  << std::endl;
 	}
 }
 
-void ClientEventListener_CODE_GAME_LANDLOAD_CONFIRM(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec, int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_GAME_LANDLOAD_CONFIRM(ProtobufCodec *codec,
+												    const muduo::net::TcpConnectionPtr &conn,
+												    int clientId,
+												    const MapHelper &data)
 {
-	LOG_DEBUG << "ClientEventListener_CODE_GAME_LANDLOAD_CONFIRM";
-	ServerTransferData result = SerializeHelper::parseStringToData<ServerTransferData>(data);
-	std::string landlordNickname = result.landlordNickname;
-
+	LOG_DEBUG << "我是client， 地主 is me!";
+//	ServerTransferData result = SerializeHelper::parseStringToData<ServerTransferData>(data);
+	std::string landlordNickname = data.get("landlordNickname", "");
 	std::cout << landlordNickname << " has  become the landlord and gotten three extra cards"
 			  << std::endl;
-	std::vector<Poker> additionalPokers = result.additionalPokers;
+	std::vector<Poker> additionalPokers = data.get("additionalPokers", std::vector<Poker>());
+	assert(!additionalPokers.empty());
 	std::cout << PokerHelper::printPokers(additionalPokers)
 	          << std::endl;
 
-	ClientTransferData res(clientId, ServerEventCode::CODE_GAME_POKER_PLAY_REDIRECT, "");
-	std::string dataToSend = SerializeHelper::SerializeToString<ClientTransferData>(res);
-
-//	CodeShowPokersData dataToSend;
-//	dataToSend.clientId = clientId;
-//	std::string dataToSendStr = SerializeHelper::SerializeToString<CodeShowPokersData>(dataToSend);
-
-	pushDataToServer(conn, codec, clientId,
-			         ServerEventCode::CODE_GAME_POKER_PLAY_REDIRECT,
-					 dataToSend);
+	// FIXME: MapHelper()
+	pushDataToServer(codec, conn,
+					 ServerEventCode::CODE_GAME_POKER_PLAY_REDIRECT,
+					 MapHelper().put("clientId", clientId));
 
 }
 
-void ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec,  int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec,
+													   const muduo::net::TcpConnectionPtr &conn,
+								  					   int clientId,
+								 					   const MapHelper &data)
 {
-	LOG_DEBUG << "ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT";
-	ServerGamePlayData result = SerializeHelper::parseStringToData<ServerGamePlayData>(data);
-	int sellClientId = result.sellClientId;
-	std::vector<ClientInfo> clientInfos = result.infos;
+	LOG_DEBUG << "我是客户端，我在做出派前的准备";
+	int sellClientId = data.get("sellClientId", 0);
+	assert(sellClientId != 0);
+	std::vector<ClientInfo> clientInfos = data.get("clientInfos", std::vector<ClientInfo>());
 
 	std::string choose[2]{ "up", "down" };
-
 	std::cout << "everyone's current situations: " << std::endl;
 
+	// FIXME: index is 3 or 2?
 	for (int index = 0; index < 2; ++index)
 	{
 		for (ClientInfo info: clientInfos)
 		{
 			std::string position = info.position;
+			std::string str_type = int(info.type) ? "PEASANT" : "LANDLORD";
 			if (position == choose[index])
 			{
-				LOG_INFO << "print left pokers info: ";
-				std::cout << info.position << "\t" << info.clientNickname << " "
-						 << std::to_string(info.surplus) << " " << std::to_string(int(info.type))
-						 << std::endl;
+				printf("%s\t%d [%s]", info.clientNickname.c_str(), info.surplus, str_type.c_str());
+				fflush(stdout);
+//				LOG_INFO << info.clientNickname << "\t"
+//						 << std::to_string(info.surplus) << " " << "["
+//						 << str_type << "]";
 			}
 		}
+	}
 
-		if (sellClientId == clientId)
-		{
-			ClientEventListener_CODE_GAME_POKER_PLAY(conn, codec, clientId, code, data);
-		}
-		else
-		{
-			std::cout << "It's " << result.sellClinetNickname << " 's turn. Please wait for him to play his cards.";
-		}
+	std::cout << " " << std::endl;
+
+	if (sellClientId == clientId)
+	{
+		std::cout << "sellClientId: " << sellClientId << "\n"
+				  << "clientId: " << clientId << std::endl;
+
+		ClientEventListener_CODE_GAME_POKER_PLAY(codec, conn,
+												 clientId,
+												 data);
+	}
+	else
+	{
+		assert(data.get("sellClinetNickname", "") != "");
+		std::cout << "It's " <<  data.get("sellClinetNickname", "") << " 's turn. Please wait for him to play his cards.";
 	}
 }
 
 bool parseLine(const std::string &line, std::vector<PokerLevel> &levels)
 {
-	LOG_INFO << "parseLine: " << line;
+//	LOG_INFO << "parseLine: " << line;
 	for (auto iter = line.begin(); iter != line.end(); ++iter)
 	{
 		switch((*iter))
@@ -393,15 +440,12 @@ bool parseLine(const std::string &line, std::vector<PokerLevel> &levels)
 	return true;
 }
 
-void ClientEventListener_CODE_GAME_POKER_PLAY(const muduo::net::TcpConnectionPtr &conn,
-		ProtobufCodec *codec,  int clientId, ClientEventCode code, const std::string &data)
+void ClientEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec,
+											  const muduo::net::TcpConnectionPtr &conn,
+											  int clientId,
+											  const MapHelper &data)
 {
-
-	LOG_INFO << "ClientEventListener_CODE_GAME_POKER_PLAY";
-	ServerGamePlayData result = SerializeHelper::parseStringToData<ServerGamePlayData>(data);
-	std::vector<ClientInfo> clientInfos = result.infos;
-	std::vector<Poker> pokers = result.pokers;
-
+	std::vector<Poker> pokers = data.get("pokers", std::vector<Poker>());
 	std::cout << "It's your turn to play, your cards are as follows: "
 			  << std::endl;
 	std::cout << PokerHelper::printPokers(pokers)
@@ -411,10 +455,10 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(const muduo::net::TcpConnectionPtr
 			  << std::endl;
 	std::cout << "combination" << std::endl;
 
-	std::string line;
-	std::transform(line.begin(),line.end(), line.begin(), ::tolower);  // 转换为小写
+	char line[100];
+	scanf("%s", line);
+	std::transform(std::begin(line),std::end(line), std::begin(line), ::tolower);  // 转换为小写
 
-	std::cin >> line;
 	if (line == "")
 	{
 		printf("Invalid enter");
@@ -425,33 +469,34 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(const muduo::net::TcpConnectionPtr
 		if ( line == "pass" || line == "p")
 		{
 			LOG_INFO << "pass";
-			pushDataToServer(conn, codec, clientId,
-					ServerEventCode::CODE_GAME_POKER_PLAY_PASS,
-					data);
+			pushDataToServer(codec, conn,
+							 ServerEventCode::CODE_GAME_POKER_PLAY_PASS,
+							 MapHelper().put("clientId", clientId));
 		}
 		else if (line == "exit" || line == "e")
 		{
 			LOG_INFO << "exit";
-			pushDataToServer(conn, codec, clientId,
+			pushDataToServer(codec, conn,
 					ServerEventCode::CODE_CLIENT_EXIT,
-					"");
+					MapHelper());
 		}
 		else if (line == "view" || line == "v")
 		{
 			LOG_INFO << "view";
-			if (result.lastSellPokers.empty() || result.lastSellClientId == 0)
+			if (data.get("lastSellPokers", std::vector<Poker>()).empty() ||
+				data.get("lastSellClientId", 0) == 0)
 			{
 				std::cout << "Current server version unsupport this feature, need more than v1.2.4."
 						  << std::endl;
-				ClientEventListener_CODE_GAME_POKER_PLAY(conn, codec, clientId, code, data);
+				ClientEventListener_CODE_GAME_POKER_PLAY(codec, conn, clientId, data);
 				return;
 			}
 
-			std::vector<Poker> lastSellPokers = result.lastSellPokers;
-			if (lastSellPokers.empty() || clientId == result.lastSellClientId)
+			std::vector<Poker> lastSellPokers = data.get("lastSellPokers", std::vector<Poker>());
+			if (lastSellPokers.empty() || clientId == data.get("lastSellClientId", 0))
 			{
 				std::cout << "Up to you !" << std::endl;
-				ClientEventListener_CODE_GAME_POKER_PLAY(conn, codec, clientId, code, data);
+				ClientEventListener_CODE_GAME_POKER_PLAY(codec, conn, clientId, data);
 				return;
 			}
 			else
@@ -462,13 +507,14 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(const muduo::net::TcpConnectionPtr
 				{
 					std::cout << "It is a pity that, there is no winning combination..."
 							  << std::endl;
-					ClientEventListener_CODE_GAME_POKER_PLAY(conn, codec, clientId, code, data);
+					ClientEventListener_CODE_GAME_POKER_PLAY(codec, conn, clientId, data);
 					return;
 				}
 
 				for(int i = 0; i < sells.size(); ++i)
 				{
 
+					// FIXME:
 					std::cout << "please complete here"
 							  << std::endl;
 				}
@@ -482,11 +528,11 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(const muduo::net::TcpConnectionPtr
 					printf("please choose: ");
 					std::cin >> lineInner;
 
-					std::transform(lineInner.begin(),line.end(), line.begin(), ::tolower);  // 转换为小写
+//					std::transform(lineInner.begin(),lineInner.end(), line.begin(), ::tolower);  // 转换为小写
 
 					if (line == "back" || line == "b")
 					{
-						ClientEventListener_CODE_GAME_POKER_PLAY(conn, codec, clientId, code, data);
+						ClientEventListener_CODE_GAME_POKER_PLAY(codec, conn, clientId, data);
 						return;
 					}
 					else
@@ -508,8 +554,9 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(const muduo::net::TcpConnectionPtr
 									levels.push_back(PokerLevel(p.getLevel()));
 								}
 								// FIXME
-								pushDataToServer(conn, codec, clientId,
-										ServerEventCode::CODE_GAME_POKER_PLAY, data);
+								pushDataToServer(codec, conn,
+												 ServerEventCode::CODE_GAME_POKER_PLAY,
+												 MapHelper().put("clientId", clientId));
 								break;
 							}
 
@@ -525,37 +572,58 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(const muduo::net::TcpConnectionPtr
 		}	// line == "v"
 		else
 		{
-			std::vector<PokerLevel> res;
-			bool access = parseLine(line, res);
-
-			LOG_INFO << "res.size(): " << res.size();
+			std::vector<PokerLevel> options;
+			bool access = parseLine(line, options);
 
 			if (access)
 			{
-				LOG_INFO << "access: " << (access ? "true" : "false");
-//				ClientTransferData dataToTransfer(clientId, ServerEventCode::CODE_GAME_POKER_PLAY, "data", res);
-//				LOG_INFO << "dataToTransfer.levels.size(): " << dataToTransfer.levels.size();
-//				std::string dataToTransferStr = SerializeHelper::SerializeToString<ClientTransferData>(dataToTransfer);
-//				ClientTransferData temp = SerializeHelper::parseStringToData<ClientTransferData>(dataToTransferStr);
-//				LOG_INFO << "temp.level.size(): " << temp.levels.size();
-				pushDataToServer(conn, codec, clientId,
-						ServerEventCode::CODE_GAME_POKER_PLAY, "result", res);
+				pushDataToServer(codec, conn,
+								 ServerEventCode::CODE_GAME_POKER_PLAY,
+								 MapHelper().put("clientId", clientId)
+								 	 	 	.put("options", options));
 			}
 			else
 			{
 				std::cout << "Invalid enter!" << std::endl;
 				LOG_INFO << "Invalid enter";
-				if (!result.lastSellPokers.empty())
+				if (!data.get("lastPokers", std::vector<Poker>()).empty())
 				{
 					std::cout << "Pre played: " << std::endl;
-					std::cout << PokerHelper::printPokers(result.lastSellPokers)
+					std::cout << PokerHelper::printPokers(data.get("lastPokers", std::vector<Poker>()))
 							  << std::endl;
 				}
 
-				ClientEventListener_CODE_GAME_POKER_PLAY(conn, codec, clientId, code, data);
+				ClientEventListener_CODE_GAME_POKER_PLAY(codec, conn, clientId, data);
 				return;
 			}
 		}
 	}
 }
 
+
+void ClientEventListener_CODE_GAME_POKER_PLAY_INVALID(ProtobufCodec *codec,
+													  const muduo::net::TcpConnectionPtr &conn,
+													  int clientId,
+													  const MapHelper &data)
+{
+	std::cout << "This combination is invalid." << std::endl;
+	LOG_INFO << "ClientEventListener_CODE_GAME_POKER_PLAY_INVALID";
+
+	std::vector<Poker> lastPokers = data.get("lastPokers", std::vector<Poker>());
+	std::string lastSellClientNickname = data.get("lastSellClientNickname", "");
+	std::string lastSellClientType = data.get("lastSellClientType", 0) ? "PEASANT" : "LANDLORD";
+	if (!lastPokers.empty())
+	{
+		std::cout << lastSellClientNickname << "[" << lastSellClientType << "]" << "played: "
+				  << std::endl;
+		std::cout << PokerHelper::printPokers(lastPokers)
+		          << std::endl;
+	}
+}
+
+void ClientEventListener_CODE_GAME_POKER_PLAY_ORDER_ERROR(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+		  	  	  	  	  	  	  	  	  	  	  	  	  int clientId, const MapHelper &data)
+{
+	std::cout << "It is not your turn yet. Please wait for other players!"
+			  << std::endl;
+}

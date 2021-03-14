@@ -15,89 +15,172 @@
 #include "muduo/base/Logging.h"
 #include "helper/SerializeHelper.h"
 #include "../robot/RobotEventListener.h"
+#include <thread>
+
+void robot_elect_landlord(ProtobufCodec *codec,
+							const muduo::net::TcpConnectionPtr &conn,
+							ClientEventCode code,
+							ClientSide *robot,
+							const MapHelper &mapHelper);
 
 void pushDataToClient(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ClientEventCode code, const std::string &data)
+		ClientEventCode code, const MapHelper &mapHelper)
 {
 //	  LOG_DEBUG << "pushDataToClient " << int(code);
 	  LOG_DEBUG << clientEventCodeToString[int(code)];
+	  std::string result = SerializeHelper::SerializeToString<MapHelper>(mapHelper);
 	  muduo::Answer answer;
 	  answer.set_answerer("san");
 	  answer.set_questioner("san");
 	  answer.set_id(int(code));
-	  answer.add_solution(data);
+	  answer.add_solution(result);
 	  codec->send(conn, answer);
 }
 
 void ServerEventListener_CODE_CLIENT_EXIT(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code, const std::string &data)
+										  const MapHelper &data)
 {
+	LOG_DEBUG << "ServerEventListener_CODE_CLIENT_EXIT";
 	conn->shutdown();
 }
 
 void ServerEventListener_CODE_CLIENT_NICKNAME_SET(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code, const std::string &data)
+												  const MapHelper &data)
 {
 	LOG_INFO << "ServerEventListener_CODE_CLIENT_NICKNAME_SET \n";
-	ClientTransferData result = SerializeHelper::parseStringToData<ClientTransferData>(data);
-	ServerContains::CLIENT_SIDE_MAP.at(result.id)->setNickname(result.data);
-	muduo::Answer answer;
-	answer.set_answerer("san");
-	answer.set_questioner("san");
-	answer.set_id(int(ClientEventCode::CODE_SHOW_OPTIONS));
-	answer.add_solution("");
-	codec->send(conn, answer);
+//	ClientTransferData result = SerializeHelper::parseStringToData<ClientTransferData>(data);
+	int clientId = data.get("clientId", 0);
+//	assert(clientId != 0);
+	std::string nickname = data.get("nickName", "");
+	assert(!nickname.empty());
+
+	if (clientId != 0 && nickname != "")
+	{
+		ServerContains::CLIENT_SIDE_MAP.at(clientId)->setNickname(nickname);
+		pushDataToClient(codec, conn,
+					     ClientEventCode::CODE_SHOW_OPTIONS,
+						 MapHelper());
+	}
+	else
+	{
+		MapHelper result;
+		// FIXME: 0怎么办
+		result.put("invalidLength", nickname.length());
+		pushDataToClient(codec, conn,
+						 ClientEventCode::CODE_CLIENT_NICKNAME_SET,
+						 result);
+	}
 }
 
 void ServerEventListener_CODE_GAME_POKER_PLAY_PASS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code, const std::string &data)
+												   const MapHelper &data)
 {
 	LOG_DEBUG << "ServerEventListener_CODE_GAME_POKER_PLAY_PASS";
+	int clientId = data.get("clientId", 0);
+	assert(clientId != 0);
+	ClientSide &clientSide = *(ServerContains::CLIENT_SIDE_MAP.at(clientId));
+	std::string type = clientSide.type_ ? "农民" : "地主";
+	LOG_DEBUG << "clientId: " << clientId << "type: " << type;
+	LOG_DEBUG << "clientSide.getRoomId(): " << clientSide.getRoomId();
+	Room &room = *ServerContains::getRoom(clientSide.getRoomId());
+	assert(ServerContains::getRoom(clientSide.getRoomId()) != NULL);
+	assert(ServerContains::CLIENT_SIDE_MAP.at(clientId) != NULL);
+	LOG_DEBUG << "room.id: " << room.getId();
+	if (room.getCurrentSellClient() == clientSide.getId())
+	{
+		if (clientSide.getId() != room.getLastSellClient())
+		{
+			ClientSide turnClient = clientSide.getNext();
+			room.setCurrentSellClient(turnClient.getId());
+
+			for (ClientSide *client: room.getClientSideList())
+			{
+				MapHelper result;
+				result.put("clientId", clientSide.getId())
+					  .put("clientNickname", clientSide.getNickname())
+					  .put("nextClientId", turnClient.getId())
+					  .put("nextClientNickname", turnClient.getNickname());
+
+
+				if (client->getRole() == ClientRole::PLAYER)
+				{
+					pushDataToClient(codec, conn,
+									 ClientEventCode::CODE_GAME_POKER_PLAY_PASS,
+									 result);
+				}
+				else
+				{
+					if (client->getId() == turnClient.getId())
+					{
+						LOG_DEBUG << "pass 里的逻辑";
+						std::thread robot_task(RobotEventListener::get,
+											   codec,
+								               std::ref(conn),
+								               ClientEventCode::CODE_GAME_POKER_PLAY,
+								               &turnClient,
+								               data);
+						robot_task.join();
+					}
+				}
+			}
+			// notifyWatcherPlayPass(room, clientSide);
+			LOG_WARN << "notifyWatcherPlayPass(room, clientSide);";
+		}
+		else
+		{
+			pushDataToClient(codec, conn,
+							 ClientEventCode::CODE_GAME_POKER_PLAY_CANT_PASS,
+							 MapHelper());
+		}
+	}
+	else
+	{
+		pushDataToClient(codec, conn,
+						 ClientEventCode::CODE_GAME_POKER_PLAY_ORDER_ERROR,
+						 MapHelper());
+	}
 }
 
 void ServerEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code, const std::string &data)
+											  const MapHelper &data)
 {
-	LOG_DEBUG << "ServerEventListener_CODE_GAME_POKER_PLAY";
+//	LOG_DEBUG << "ServerEventListener_CODE_GAME_POKER_PLAY";
+	int clientId = data.get("clientId", 0);
+	assert(clientId != 0);
+	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.at(clientId);
+//	LOG_INFO << "clientId: " << clientId;
 
-//	CodeShowPokersData dataToTranfer;
-
-	ClientTransferData result = SerializeHelper::parseStringToData<ClientTransferData>(data);
-	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.at(result.id);
-	LOG_INFO << "result.id: " << result.id;
+	if (clientId < 0)
+		LOG_DEBUG << "我是服务器，现在收到了机器人的出牌申请！";
+	else
+		LOG_DEBUG << "我是服务器，现在收到了玩家的出牌申请！";
 	Room *room = ServerContains::getRoom(clientSide->getRoomId());
+
+	assert(room != NULL);
+	assert(ServerContains::CLIENT_SIDE_MAP.at(clientId) != NULL);
 
 	if (room != NULL)
 	{
 		if (room->getCurrentSellClient() == clientSide->getId())
 		{
-			std::vector<PokerLevel> options = result.levels;
+			LOG_WARN << "\n currentSellClient: " << room->getCurrentSellClient()
+					 << "clientSide.id: " << clientSide->getId();
+			std::vector<PokerLevel> options = data.get("options", std::vector<PokerLevel>());
 
-			for (auto pl: options)
-			{
-				LOG_INFO << "PokerLevel: " << int(pl);
-			}
-
-			LOG_INFO << "result.levels.size(): " << result.levels.size();
-			LOG_INFO << "options.size(): " << options.size();
 			std::vector<int> indexes = PokerHelper::getIndexes(options, clientSide->getPokers());
-
-			LOG_DEBUG << "indexes.size(): " << indexes.size();
 
 			if (PokerHelper::checkPokerIndex(indexes, clientSide->getPokers()))
 			{
-				LOG_DEBUG << "clientSide->id: " << clientSide->getId();
 				bool sellFlag = true;
 
 				std::vector<Poker> currentPokers = PokerHelper::getPoker(indexes, clientSide->getPokers());
 				PokerSell currentPokerShell = PokerHelper::checkPokerType(currentPokers);
+
 				if (currentPokerShell.getSellType() != SellType::ILLEGAL)
 				{
-					LOG_DEBUG << "currentPokerShell.getSellType(): " << currentPokerShell.getSellType();
 					if (room->getLastSellClient() != clientSide->getId())
 					{
 						// FIXME: // room.getLastPokerShell() != null
-						LOG_WARN << "FIXME: // room.getLastPokerShell() != null";
 						PokerSell lastPokerShell = room->getLastPokerShell();
 
 						if (lastPokerShell.getSellType() != currentPokerShell.getSellType() &&
@@ -105,28 +188,25 @@ void ServerEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec, const muduo:
 							currentPokerShell.getSellType() != SellType::BOMB &&
 							currentPokerShell.getSellType() != SellType::KING_BOMB)
 						{
-							ClientGamePlayData dataToTransfer;
-							dataToTransfer.setPlayType(currentPokerShell.getSellType());
-							dataToTransfer.setPlayCount(currentPokerShell.getSellPokers()->size());
-							dataToTransfer.setPreType(lastPokerShell.getSellType());
-							dataToTransfer.setPreCount(lastPokerShell.getSellPokers()->size());
-							std::string dataToTransferStr = SerializeHelper::SerializeToString<ClientGamePlayData>(dataToTransfer);
-
+							MapHelper result;
+							result.put("playType", int(currentPokerShell.getSellType()))
+								  .put("playCount", currentPokerShell.getSellPokers()->size())
+								  .put("preType", int(lastPokerShell.getSellType()))
+								  .put("preCount", lastPokerShell.getSellPokers()->size());
 							sellFlag = false;
 							pushDataToClient(codec, conn,
 											 ClientEventCode::CODE_GAME_POKER_PLAY_MISMATCH,
-											 dataToTransferStr);
+											 result);
 						}    // 106
 						else if (lastPokerShell.getScore() >= currentPokerShell.getScore())
 						{
-							ClientGamePlayData dataToTransfer;
-							dataToTransfer.setPlayScore(currentPokerShell.getScore());
-							dataToTransfer.setPreScore(lastPokerShell.getScore());
-							std::string dataToTransferStr = SerializeHelper::SerializeToString<ClientGamePlayData>(dataToTransfer);
 							sellFlag = false;
+							MapHelper result;
+							result.put("playScore", currentPokerShell.getScore())
+								  .put("preScore", lastPokerShell.getScore());
 							pushDataToClient(codec, conn,
 											 ClientEventCode::CODE_GAME_POKER_PLAY_LESS,
-											 dataToTransferStr);
+											 result);
 						}
 					}
 				}    // 93
@@ -135,51 +215,60 @@ void ServerEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec, const muduo:
 					sellFlag = false;
 					pushDataToClient(codec, conn,
 									ClientEventCode::CODE_GAME_POKER_PLAY_INVALID,
-									data);
+									MapHelper());
 				}
 
 				if (sellFlag)
 				{
+					if (clientId < 0)
+					{
+						LOG_DEBUG << "机器人出的牌合法";
+					}
+					else
+					{
+						LOG_DEBUG << "玩家出的牌合法";
+					}
 					ClientSide &next = clientSide->getNext();
 					room->setLastSellClient(clientSide->getId());
 					room->setCurrentSellClient(next.getId());
 
+					LOG_INFO << "clientSide->getPokers().size(): " << clientSide->getPokers().size();
 					PokerHelper::removeAll(clientSide->getPokers(), currentPokers);
-					CodeShowPokersData dataToTranfer;
-					dataToTranfer.setClientId(clientSide->getId());
-					dataToTranfer.setClientNickname(clientSide->getNickname());
-					dataToTranfer.setClientType(clientSide->getType());
-					dataToTranfer.setPokers(currentPokers);
-					dataToTranfer.setlastSellClientId(clientSide->getId());
-					dataToTranfer.setLastSellPokers(currentPokers);
+					LOG_INFO << "clientSide->getPokers().size(): " << clientSide->getPokers().size();
+
+					MapHelper mapHelper;
+					mapHelper.put("clientId", clientSide->getId())
+							 .put("clientNickname",clientSide->getNickname())
+							 .put("clientType", int(clientSide->getType()))
+							 .put("pokers", currentPokers)
+							 .put("lastSellClientId", clientSide->getId())
+							 .put("lastSellPokers", currentPokers);
 
 					if (!clientSide->getPokers().empty())
 					{
-						dataToTranfer.setSellClinetNickname(next.getNickname());
+						mapHelper.put("sellClinetNickname", next.getNickname());
 					}
-
-					std::string dataToTransferStr = SerializeHelper::SerializeToString<CodeShowPokersData>(dataToTranfer);
 
 					for (ClientSide *client: room->getClientSideList())
 					{
 						if (client->getRole() == ClientRole::PLAYER)
 						{
-							LOG_DEBUG << "client->getRole() == ClientRole::PLAYER";
+							LOG_DEBUG << "我是服务器，我想要让玩家的客户端显示当前打的牌, 当前的客户端id： "
+									  << client->getId();
 							pushDataToClient(codec, conn,
 											 ClientEventCode::CODE_SHOW_POKERS,
-											 dataToTransferStr);
+											 mapHelper);
 						}
 					}
 
 					// notifyWatcherPlayPoker(room, result);
-					LOG_WARN << "notifyWatcherPlayPoker(room, result);";
+//					LOG_WARN << "notifyWatcherPlayPoker(room, result);";
 					if (clientSide->getPokers().empty())
 					{
-						ClientGamePlayData dataWinToTranfer;
-						dataWinToTranfer.setWinnerNickname(clientSide->getNickname());
-						dataWinToTranfer.setWinnerType(clientSide->getType());
-						std::string dataWinToTranferStr = SerializeHelper::SerializeToString<ClientGamePlayData>(dataWinToTranfer);
-
+						LOG_DEBUG << "游戏结束！";
+						MapHelper result;
+						result.put("winnerNickname", clientSide->getNickname())
+							  .put("winnerType", int(clientSide->getType()));
 						for (ClientSide *client: room->getClientSideList())
 						{
 							if (client->getRole() == ClientRole::PLAYER)
@@ -187,42 +276,49 @@ void ServerEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec, const muduo:
 								LOG_DEBUG << "client->getRole() == ClientRole::PLAYER";
 								pushDataToClient(codec, conn,
 												 ClientEventCode::CODE_GAME_OVER,
-												 dataWinToTranferStr);
+												 result);
 							}
 						}
 
-						ServerEventListener_CODE_CLIENT_EXIT(codec, conn, code, "");
+						ServerEventListener_CODE_CLIENT_EXIT(codec, conn, MapHelper());
 					}
 					else
 					{
 						if (next.getRole() == ClientRole::PLAYER)
 						{
-							LOG_DEBUG << "next->getRole() == ClientRole::PLAYER";
-							ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(codec, conn, code, dataToTransferStr);
+							LOG_DEBUG << "玩家整理牌！";
+							ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(codec,
+																			  conn,
+																			  mapHelper);
 						}
 						else
 						{
-							LOG_DEBUG << "next->getRole() == ClientRole::ROBOT";
-							RobotEventListener::get(codec, conn,
-									ClientEventCode::CODE_GAME_POKER_PLAY,
-									&next,
-									data);
+							LOG_DEBUG << "轮到机器人瞎集二打了";
+							LOG_DEBUG << "机器人的名字是： " << next.getNickname();
+							std::thread robot_task(RobotEventListener::get,
+												   codec,
+									               std::ref(conn),
+									               ClientEventCode::CODE_GAME_POKER_PLAY,
+									               &next,
+									               data);
+
+							robot_task.join();
 						}
 					}
 				}  // 141: if (sellFlag)
+				else
+				{
+					pushDataToClient(codec, conn,
+									 ClientEventCode::CODE_GAME_POKER_PLAY_INVALID,
+									 MapHelper());
+				}
 			}   // 87: checkIndex
-			else
-			{
-				pushDataToClient(codec, conn,
-								 ClientEventCode::CODE_GAME_POKER_PLAY_INVALID,
-								 "");
-			}
 		}  // 72
 		else
 		{
 			pushDataToClient(codec, conn,
 							 ClientEventCode::CODE_GAME_POKER_PLAY_ORDER_ERROR,
-							 "");
+							 MapHelper());
 		}
 	}
 	else
@@ -234,15 +330,27 @@ void ServerEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec, const muduo:
 
 
 void ServerEventListener_CODE_GAME_STARTING(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code, const std::string &data)
+											const MapHelper &data)
 {
-	ClientTransferData result = SerializeHelper::parseStringToData<ClientTransferData>(data);
-	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.at(result.id);
-	LOG_INFO << "result.id: " << result.id << "\n";
+	int clientId = data.get("clientId", 0);
+	assert(clientId != 0);
+	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.at(clientId);
+	LOG_DEBUG << "clientId: " << clientId;
+	if (clientId < 0)
+	{
+		LOG_DEBUG << "我是机器人！我要继续选地主了";
+	}
+	else
+	{
+		LOG_DEBUG << "我是玩家，我要打牌了！";
+	}
 	Room *room = ServerContains::getRoom(clientSide->getRoomId());
 
+	assert( room != NULL);
+	assert(ServerContains::CLIENT_SIDE_MAP.at(clientId) != NULL);
+
 	std::vector<ClientSide*> roomClientList = room->getClientSideList();
-	LOG_INFO << "roomClientList::size(): " << roomClientList.size() << "\n";
+	LOG_DEBUG << "roomClientList::size(): " << roomClientList.size() << "\n";
 
 	std::vector<ClientSide> roomCList;
 
@@ -263,7 +371,7 @@ void ServerEventListener_CODE_GAME_STARTING(ProtobufCodec *codec, const muduo::n
 	}
 
 	// Push information about the robber
-	int startGrabIndex = rand() % 3;   // 随机选地主
+	int startGrabIndex = rand() % 3;   // 随机找个人开始选地主
 	ClientSide *startGrabClient = roomClientList.at(startGrabIndex);
 	room->setCurrentSellClient(startGrabClient->getId());
 
@@ -277,50 +385,54 @@ void ServerEventListener_CODE_GAME_STARTING(ProtobufCodec *codec, const muduo::n
 	{
 		client->setType(ClientType::PEASANT);   // 农民
 
-		ServerTransferData result;
-		result.setRoomId(room->getId());
-		result.setRoomOwner(room->getRoomOwner());
-		result.setRoomClientCount(room->getClientSideList().size());
-		result.setnextClientNickname(startGrabClient->getNickname());
-		result.setNextClientId(startGrabClient->getId());
-		result.setPokers(client->getPokers());
-
-		// FIXME
-		result.setClientOrderList(roomCList);
+		MapHelper result;
+		result.put("roomId", room->getId())
+			  .put("roomOwner", room->getRoomOwner())
+			  .put("roomClientCount", room->getClientSideList().size())
+			  .put("nextClientNickname", startGrabClient->getNickname())
+			  .put("nextClientId", startGrabClient->getId())
+			  .put("pokers", client->getPokers())
+			  .put("clientOrderList", roomCList);
 
 		LOG_INFO << "ClientRole: " << int(clientSide->getRole());
-		std::string res = SerializeHelper::SerializeToString<ServerTransferData>(result);
 		if (client->getRole() == ClientRole::PLAYER)  // 玩家
 		{
 			pushDataToClient(codec, conn,
 					ClientEventCode::CODE_GAME_STARTING,
-					res);
+					result);
 		}
 		else  // 人机
 		{
 
-			LOG_INFO << "人机";
+			LOG_INFO << "继续选地主！";
 			if(startGrabClient->getId() == client->getId())
 			{
-				RobotEventListener::get(codec, conn,
-						ClientEventCode::CODE_GAME_LANDLORD_ELECT,
-						client,
-						data);
+				std::thread robot_task(RobotEventListener::get,
+									   codec,
+						               std::ref(conn),
+						               ClientEventCode::CODE_GAME_LANDLORD_ELECT,
+						               client,
+						               result);
+
+				robot_task.join();
 			}
 		}
 	}
+	// notifyWatcherGameStart(room);
+	LOG_WARN << "notifyWatcherGameStart(room);";
 }
 
 void ServerEventListener_CODE_ROOM_CREATE_PVE(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code,const std::string &data)
+											  const MapHelper &data)
 {
 	LOG_INFO << "ServerEventListener_CODE_ROOM_CREATE_PVE";
-	ClientTransferData result = SerializeHelper::parseStringToData<ClientTransferData>(data);
-	int difficultyCoefficient = 1;
-	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.find(result.id)->second;
-	LOG_INFO << "result.id: " << result.id << "\n";
+	int clientId = data.get("clientId", 0);
+	int difficultyCoefficient = atoi(data.get("choose", "").c_str());
+	LOG_DEBUG << "difficultyCoefficient: " << difficultyCoefficient;
+	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.find(clientId)->second;
+	assert(clientId != 0);
+	LOG_INFO << "clientId: " << clientId << "\n";
 	LOG_INFO << "clientSide.id: " << clientSide->getId() << "\n";
-	LOG_INFO << "ClientSide &clientSide = ServerContains::CLIENT_SIDE_MAP.at(result.id)";
 	if (RobotDecisionMakers::contains(difficultyCoefficient))
 	{
 		LOG_INFO << "contains(difficultyCoefficient)";
@@ -365,126 +477,221 @@ void ServerEventListener_CODE_ROOM_CREATE_PVE(ProtobufCodec *codec, const muduo:
 
 		preClient->setNext(clientSide);
 		clientSide->setPre(preClient);
-//		LOG_INFO << "ClientEventCode::CODE_SHOW_POKERS";
-//		for (auto & client: ServerContains::CLIENT_SIDE_MAP)
-//		{
-//
-//			std::vector<Poker> pokers = client.second->getPokers();
-////			ServerTransferData dataToTrans;
-////			dataToTrans.setPokers(pokers);
-//			LOG_INFO << "pokers.size(): " << pokers.size();
-//			LOG_INFO << PokerHelper::printPokers(pokers);
-//			LOG_INFO << "CODE_SHOW_POKERS";
-//			std::string dataToTransStr = SerializeHelper::SerializeToString<std::vector<Poker> >(pokers);
-//			pushDataToClient(codec, conn, ClientEventCode::CODE_SHOW_POKERS, dataToTransStr);
-//		}
+		LOG_DEBUG << "查看 CLIENT_SIDE_MAP 里存的 clientSide：";
+		for (auto & client: ServerContains::CLIENT_SIDE_MAP)
+		{
+			LOG_DEBUG << "client->id: " << client.second->getId();
+		}
+
+		LOG_DEBUG << "查看room中的 clientSide 信息：";
+		for (auto client: room->getClientSideList())
+		{
+			LOG_DEBUG << "client.id of room: " << client->getId();
+		}
+
 		LOG_INFO << "ServerEventCode::CODE_GAME_STARTING";
 		ServerEventListener_CODE_GAME_STARTING(codec, conn,
-						ServerEventCode::CODE_GAME_STARTING, data);
+											   MapHelper().put("roomId", room->getId())
+											   	   	   	  .put("clientId", clientSide->getId()));
 		LOG_INFO << "ServerEventCode::CODE_GAME_STARTING";
 	}
 	else
 	{
-		muduo::Answer answer;
-		answer.set_id(int(ClientEventCode::CODE_PVE_DIFFICULTY_NOT_SUPPORT));
-		answer.add_solution("CODE_PVE_DIFFICULTY_NOT_SUPPORT");
-		answer.set_questioner("san");
-		answer.set_answerer("san");
-		codec->send(conn, answer);
+		pushDataToClient(codec, conn,
+				         ClientEventCode::CODE_PVE_DIFFICULTY_NOT_SUPPORT,
+						 MapHelper());
 	}
 }
 
 void ServerEventListener_CODE_GAME_LANDLORD_ELECT(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code, const std::string &data)
+												  const MapHelper &data)
 {
-	LOG_INFO << "ServerEventListener_CODE_GAME_LANDLORD_ELECT";
-	ClientTransferData result = SerializeHelper::parseStringToData<ClientTransferData>(data);
-	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.find(result.id)->second;
+	// 谁先抢，谁就是地主
+	LOG_DEBUG << "ServerEventListener_CODE_GAME_LANDLORD_ELECT";
+//	ClientTransferData result = SerializeHelper::parseStringToData<ClientTransferData>(data);
+	int clientId = data.get("clientId", 0);
+	ClientSide &clientSide = *(ServerContains::CLIENT_SIDE_MAP.find(clientId)->second);
 
-	LOG_INFO << result.data;
-	Room *room = ServerContains::getRoom(clientSide->getRoomId());
+	assert(ServerContains::CLIENT_SIDE_MAP.find(clientId)->second != NULL);
+	LOG_INFO << "clientId: " << clientId;
+	assert(clientId != 0);
+	Room &room = *ServerContains::getRoom(clientSide.getRoomId());
+	assert(ServerContains::getRoom(clientSide.getRoomId()) != NULL);
 
-	LOG_INFO << "roomId: " << room->getId();
+	LOG_INFO << "roomId: " << room.getId();
+	LOG_DEBUG << "is_Y: " <<  data.get("is_Y", "");
 
-	if (result.data == "true")
+	if (data.get("is_Y", "") == "true")
 	{
 		LOG_INFO << "true";
-		std::copy(room->getLoadlordPokers()->begin(),
-				  room->getLoadlordPokers()->end(),
-				  std::back_inserter(clientSide->getPokers()));
+		std::copy(room.getLoadlordPokers()->begin(),
+				  room.getLoadlordPokers()->end(),
+				  std::back_inserter(clientSide.getPokers()));
 
-		PokerHelper::sortPoker(clientSide->getPokers());
+		PokerHelper::sortPoker(clientSide.getPokers());
 
-		int currentClientId = clientSide->getId();
-		room->setLandlordId(currentClientId);
-		room->setLastSellClient(currentClientId);
-		room->setCurrentSellClient(currentClientId);
+		int currentClientId = clientSide.getId();
+		room.setLandlordId(currentClientId);
+		room.setLastSellClient(currentClientId);
+		room.setCurrentSellClient(currentClientId);
 
-		for (ClientSide *client: room->getClientSideList())
+		for (ClientSide *client: room.getClientSideList())
 		{
-			ServerTransferData result;
-			result.setRoomId(room->getId());
-			result.setRoomOwner(room->getRoomOwner());
-			result.setRoomClientCount(room->getClientSideList().size());
-			result.setLandlordNickname(clientSide->getNickname());
-			result.setAdditionalPokers(room->getLandlordPokers());
-			std::string res = SerializeHelper::SerializeToString(result);
+			MapHelper result;
+			result.put("roomId", room.getId())
+				  .put("roomOwner", room.getRoomOwner())
+				  .put("roomClientCount", room.getClientSideList().size())
+				  .put("landlordNickname", clientSide.getNickname())
+				  .put("landlordId", clientSide.getId())
+				  .put("additionalPokers", room.getLandlordPokers());
 
 			if (client->getRole() == ClientRole::PLAYER)
 			{
-				LOG_INFO << "ClientEventCode::CODE_GAME_LANDLORD_CONFIRM";
+				LOG_INFO << "我是玩家，终于可以玩牌啦！";
 				pushDataToClient(codec, conn,
-						ClientEventCode::CODE_GAME_LANDLORD_CONFIRM,
-						res);
+								 ClientEventCode::CODE_GAME_LANDLORD_CONFIRM,
+								 result);
 			}
 			else
 			{
 				if(currentClientId == client->getId())
 				{
-					LOG_INFO << "RobotEventListener::get(codec, conn, ClientEventCode::CODE_GAME_POKER_PLAY, client, data)";
-					RobotEventListener::get(codec, conn, ClientEventCode::CODE_GAME_POKER_PLAY, client, data);
+					LOG_INFO << "地主确认，机器人开始营业啦！";
+					std::thread robot_task(RobotEventListener::get,
+										   codec,
+							               std::ref(conn),
+							               ClientEventCode::CODE_GAME_POKER_PLAY,
+							               client,
+							               result);
+
+					robot_task.join();
 				}
 			}
 		}
+
+		// notifyWatcherRobLandlord(room, clientSide);
+		LOG_WARN << "notifyWatcherRobLandlord(room, clientSide)";
+	}
+	else
+	{
+		LOG_DEBUG << "不要地主";
+		if (clientSide.getNext().getId() == room.getFirstClient())
+		{
+			LOG_INFO << "id: " << clientSide.getId();
+			for (ClientSide *client: room.getClientSideList())
+			{
+				if (client->getRole() == ClientRole::PLAYER)
+				{
+					pushDataToClient(codec, conn,
+									 ClientEventCode::CODE_GAME_LANDLORD_CYCLE,
+									 MapHelper());
+				}
+			}
+
+			ServerEventListener_CODE_GAME_STARTING(codec, conn,
+												   MapHelper().put("clienId", clientId));
+		}
+		else
+		{
+			LOG_INFO << "id: " << clientSide.getId();
+			ClientSide &turnClientSide = clientSide.getNext();
+			room.setCurrentSellClient(turnClientSide.getId());
+			MapHelper result;
+			result.put("roomId", room.getId())
+				  .put("roomOwner", room.getRoomOwner())
+				  .put("roomClientCount", room.getClientSideList().size())
+				  .put("preClientNickname", clientSide.getNickname())
+				  .put("nextClientNickname", turnClientSide.getNickname())
+				  .put("nextClientId", turnClientSide.getId());
+
+			for (ClientSide *client: room.getClientSideList())
+			{
+				if (client->getRole() == ClientRole::PLAYER)
+				{
+					pushDataToClient(codec, conn,
+									 ClientEventCode::CODE_GAME_LANDLORD_ELECT,
+									 result);
+				}
+				else
+				{
+					LOG_INFO << "robot: " << "comming in";
+					LOG_INFO << "robot_" << client->getId();
+					if (client->getId() == turnClientSide.getId())
+					{
+						LOG_DEBUG << "client->getId(): " << client->getId();
+						LOG_DEBUG << "turnClientSide.getId(): " << turnClientSide.getId();
+						std::thread robot(std::bind(robot_elect_landlord, codec, conn,
+										  ClientEventCode::CODE_GAME_LANDLORD_ELECT,
+										  client, result));
+						robot.join();
+					}
+				}
+			}
+			// notifyWatcherRobLandlord(room, clientSide);
+			LOG_WARN << "notifyWatcherRobLandlord(room, clientSide)";
+		}
 	}
 }
+//	else
+//	{
+//		// ChannelUtils.pushToClient(clientSide.getChannel(), ClientEventCode.CODE_ROOM_PLAY_FAIL_BY_INEXIST, null);
+//		LOG_WARN << "ChannelUtils.pushToClient(clientSide.getChannel(), ClientEventCode.CODE_ROOM_PLAY_FAIL_BY_INEXIST, null)";
+//	}
 
 void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ServerEventCode code, const std::string &data)
+													   const MapHelper &data)
 {
-	LOG_INFO << "ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT";
-	ClientTransferData resultReceive = SerializeHelper::parseStringToData<ClientTransferData>(data);
-	ClientSide *clientSide = ServerContains::CLIENT_SIDE_MAP.find(resultReceive.id)->second;
+	LOG_INFO << "我是服务端，我在做出牌前的准备！";
+	int clientId = data.get("clientId", 0);
+	assert(clientId != 0);
+	ClientSide &clientSide = *(ServerContains::CLIENT_SIDE_MAP.find(clientId)->second);
 
-	LOG_INFO << "resultReceive.id: " << resultReceive.id;
-	LOG_INFO << "*clientSide";
+	LOG_INFO << "clientId: " << clientId;
 	// FIXME
-	Room *room = ServerContains::getRoom(clientSide->getRoomId());
-	LOG_INFO << "clientSide->getId(): " << clientSide->getId();
-	LOG_INFO << "clientSide->getPre().getId(): " << clientSide->getPre().getId();
-	std::string p = clientSide->getPre().getId() == clientSide->getId() ? "up" : "down";
-	LOG_INFO << "p: " << p;
+	Room &room = *ServerContains::getRoom(clientSide.getRoomId());
+	assert(ServerContains::getRoom(clientSide.getRoomId()) != NULL);
+	assert(ServerContains::CLIENT_SIDE_MAP.at(clientId) != NULL);
+
+	LOG_INFO << "clientSide->getId(): " << clientSide.getId();
+	LOG_INFO << "clientSide->getPre().getId(): " << clientSide.getPre().getId();
+
 	std::vector<ClientInfo> clientInfos;
-	for (ClientSide *client: room->getClientSideList())
+	for (ClientSide *client: room.getClientSideList())
 	{
-		LOG_INFO << "room->getClientSideList().size(): " << room->getClientSideList().size();
+		std::string p = clientSide.getPre().getId() == client->getId() ? "up" : "down";
+		MapHelper result;
+
 		ClientInfo info(client->getId(),
 						 client->getNickname(),
 						 client->getType(),
 						 client->getPokers().size(),
 						 p);
-		clientInfos.push_back(info);
+
+		if (client->getId() != clientSide.getId())
+			clientInfos.push_back(info);
 	}
 
+	MapHelper result;
+	result.put("pokers", clientSide.getPokers())
+		  .put("lastSellPokers", data.get("lastSellPokers", std::vector<Poker>()))
+		  .put("lastSellClientId", data.get("lastSellClientId", 0))
+		  .put("clientInfos", clientInfos)
+		  .put("sellClientId", room.getCurrentSellClient())
+		  .put("sellClinetNickname", ServerContains::CLIENT_SIDE_MAP.at(room.getCurrentSellClient())->getNickname());
 
-	ServerGamePlayData result(clientInfos,
-						clientSide->getPokers(),
-						std::vector<Poker>(),
-						room->getLastSellClient(),
-						room->getCurrentSellClient(),
-						ServerContains::CLIENT_SIDE_MAP.at(room->getCurrentSellClient())->getNickname());
-	LOG_INFO << "GamePlayData";
-	std::string res = SerializeHelper::SerializeToString<ServerGamePlayData>(result);
-	pushDataToClient(codec, conn,  ClientEventCode::CODE_GAME_POKER_PLAY_REDIRECT, res);
+	pushDataToClient(codec, conn,
+					 ClientEventCode::CODE_GAME_POKER_PLAY_REDIRECT,
+					 result);
+}
+
+void robot_elect_landlord(ProtobufCodec *codec,
+							const muduo::net::TcpConnectionPtr &conn,
+							ClientEventCode code,
+							ClientSide *robot,
+							const MapHelper &mapHelper)
+{
+	RobotEventListener::get(codec, conn,
+							code,
+							robot, mapHelper);
 }
 

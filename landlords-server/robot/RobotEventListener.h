@@ -22,8 +22,7 @@ public:
 			     ClientSide *robot,
 			 	 ProtobufCodec *codec,
 				 const muduo::net::TcpConnectionPtr &conn,
-				 ServerEventCode code,
-				 const std::string &data);
+				 const MapHelper &mapHelper);
 
 	RobotEventListener(){}
 	~RobotEventListener(){}
@@ -40,7 +39,7 @@ public:
 					const muduo::net::TcpConnectionPtr &conn,
 					ClientEventCode code,
 					ClientSide *robot,
-					const std::string &data)
+					const MapHelper &mapHelper)
 	{
 		LOG_INFO << "RobotEventListener::get()";
 		LOG_INFO << int(code);
@@ -48,8 +47,7 @@ public:
 		if (is_find != LISTENER_MAP.end())
 		{
 			is_find->second(robot, codec, conn,
-							ServerEventCode::CODE_GAME_POKER_PLAY,
-							data);
+							mapHelper);
 		}
 	}
 };

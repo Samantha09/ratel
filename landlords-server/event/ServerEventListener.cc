@@ -9,7 +9,8 @@
 #define LANDLORDS_SERVER_EVENT_SERVEREVENTLISTENER_CC_
 
 #include "ServerEventListener.h"
-#include "EventFuncs.h"
+//FIXME
+#include "EventFuncs.cc"
 
 using std::placeholders::_1;
 using std::placeholders::_2;
@@ -27,6 +28,7 @@ ServerEventListener::ServerEventListener()
 	LISTENER_MAP[ServerEventCode::CODE_GAME_POKER_PLAY] = ServerEventListener_CODE_GAME_POKER_PLAY;
 	LISTENER_MAP[ServerEventCode::CODE_GAME_POKER_PLAY_REDIRECT] = ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT;
 	LISTENER_MAP[ServerEventCode::CODE_GAME_LANDLORD_ELECT] = ServerEventListener_CODE_GAME_LANDLORD_ELECT;
+	LISTENER_MAP[ServerEventCode::CODE_GAME_POKER_PLAY_PASS] = ServerEventListener_CODE_GAME_POKER_PLAY_PASS;
 }
 
 

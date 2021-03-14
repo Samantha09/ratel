@@ -4,16 +4,13 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CC_SRCS += \
-../landlords-server/RatelServer.cc \
-../landlords-server/main.cc 
+../landlords-server/server.cc 
 
 CC_DEPS += \
-./landlords-server/RatelServer.d \
-./landlords-server/main.d 
+./landlords-server/server.d 
 
 OBJS += \
-./landlords-server/RatelServer.o \
-./landlords-server/main.o 
+./landlords-server/server.o 
 
 
 # Each subdirectory must supply rules for building sources it contributes

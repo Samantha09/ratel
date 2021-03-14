@@ -23,6 +23,23 @@ C_DEPS :=
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
-landlords-common \
+landlords-client \
+landlords-client/event \
+landlords-common/back \
+landlords-common/backup \
+landlords-common/entity \
+landlords-common/enums \
+landlords-common/helper \
+landlords-common/protobuf \
+landlords-common/robot \
+landlords-server/event \
+landlords-server/robot \
 landlords-server \
+test \
+test/boostt \
+test/entity \
+test/event \
+test/helper \
+test/helper/serialization \
+test/robot \
 

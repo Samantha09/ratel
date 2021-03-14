@@ -28,7 +28,16 @@ public:
 
 	static void removeAll(std::vector<Poker>& pokers, std::vector<Poker> &currentPokers)
 	{
-		LOG_WARN << "空函数";
+//		LOG_WARN << "空函数";
+		LOG_WARN << "currentPokers.size(): " << currentPokers.size();
+		for (auto p: currentPokers)
+		{
+			auto res = std::find_if(pokers.begin(), pokers.end(), [p](Poker t){return p.level_ == t.level_;});
+			if (res != pokers.end())
+			{
+				pokers.erase(res);
+			}
+		}
 	}
 
 	static std::vector<Poker> getPoker(const std::vector<int> &indexes,
@@ -49,6 +58,8 @@ public:
 	static bool checkPokerIndex(const std::vector<int> &indexes,
 								const std::vector<Poker> &pokers)
 	{
+		LOG_DEBUG << "checkPokerIndex";
+		LOG_DEBUG << "pokers.size(): " << pokers.size();
 		bool access = true;
 		if (indexes.empty())
 		{
@@ -58,8 +69,9 @@ public:
 		{
 			for (int index: indexes)
 			{
-				if (index > pokers.size() || index < 1)
+				if (index > pokers.size() || index < 0)
 				{
+					LOG_DEBUG << "index: " << index << " pokers.size(): " << pokers.size();
 					access = false;
 				}
 			}
@@ -73,7 +85,7 @@ public:
 		LOG_INFO << "ingore types";
 		std::vector<int> indexes(options.size());
 		std::vector<Poker> copyList(pokers);
-		LOG_INFO << "copyList.size(): " << copyList.size();
+//		LOG_INFO << "copyList.size(): " << copyList.size();
 		for (int index = 0; index < options.size(); ++index)
 		{
 			LOG_INFO << "index: " << index;
@@ -87,8 +99,6 @@ public:
 				Poker poker = *iter;
 				if (poker.level_ == option)
 				{
-					LOG_INFO << "poker.level_: " << int(poker.level_);
-					LOG_INFO << "option: " << int(option);
 					isTarget = true;
 					indexes[index] = std::distance(copyList.begin(), iter);
 					iter->level_ = PokerLevel::INVALID;
