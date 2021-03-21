@@ -65,7 +65,7 @@ public:
 //			}
 //		}
 		// FIXME
-		return PokerSell(SellType::YAO_BU_QI, std::vector<Poker>(), 0);
+		return PokerSell(SellType::VOID_SELL, std::vector<Poker>(), 0);
 	}
 
 	static bool howToChooseLandlord(std::vector<Poker> leftPokers,

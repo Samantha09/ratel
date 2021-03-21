@@ -14,7 +14,6 @@
 #include "entity/PokerSell.h"
 #include <unordered_set>
 #include <algorithm>
-
 #include "muduo/base/Logging.h"
 
 //class PokerSell;
@@ -26,100 +25,15 @@ public:
 	PokerHelper();
 	virtual ~PokerHelper();
 
-	static void removeAll(std::vector<Poker>& pokers, std::vector<Poker> &currentPokers)
-	{
-//		LOG_WARN << "空函数";
-		LOG_WARN << "currentPokers.size(): " << currentPokers.size();
-		for (auto p: currentPokers)
-		{
-			auto res = std::find_if(pokers.begin(), pokers.end(), [p](Poker t){return p.level_ == t.level_;});
-			if (res != pokers.end())
-			{
-				pokers.erase(res);
-			}
-		}
-	}
+	static void removeAll(std::vector<Poker>& pokers, std::vector<Poker> &currentPokers);
 
 	static std::vector<Poker> getPoker(const std::vector<int> &indexes,
-									   const std::vector<Poker> pokers)
-	{
-		LOG_DEBUG << "getPoker";
-		std::vector<Poker> resultPokers;
-		for (int index: indexes)
-		{
-			// LOG_INFO << 这里没有减1
-			resultPokers.push_back(pokers.at(index));
-		}
-
-		sortPoker(resultPokers);
-		return resultPokers;
-	}
+									   const std::vector<Poker> pokers);
 
 	static bool checkPokerIndex(const std::vector<int> &indexes,
-								const std::vector<Poker> &pokers)
-	{
-		LOG_DEBUG << "checkPokerIndex";
-		LOG_DEBUG << "pokers.size(): " << pokers.size();
-		bool access = true;
-		if (indexes.empty())
-		{
-			access = false;
-		}
-		else
-		{
-			for (int index: indexes)
-			{
-				if (index > pokers.size() || index < 0)
-				{
-					LOG_DEBUG << "index: " << index << " pokers.size(): " << pokers.size();
-					access = false;
-				}
-			}
-		}
-		return access;
-	}
+								const std::vector<Poker> &pokers);
 
-	static std::vector<int> getIndexes(const std::vector<PokerLevel> &options, const std::vector<Poker> &pokers)
-	{
-		// FIXME
-		LOG_INFO << "ingore types";
-		std::vector<int> indexes(options.size());
-		std::vector<Poker> copyList(pokers);
-//		LOG_INFO << "copyList.size(): " << copyList.size();
-		for (int index = 0; index < options.size(); ++index)
-		{
-			LOG_INFO << "index: " << index;
-			PokerLevel option = options.at(index);
-			bool isTarget = false;
-			auto iter = copyList.begin();
-			while (iter != copyList.end())
-			{
-//				LOG_INFO << "copyList.size(): " << copyList.size();
-//				LOG_INFO << "iter_index: " << std::distance(copyList.begin() ,iter);
-				Poker poker = *iter;
-				if (poker.level_ == option)
-				{
-					isTarget = true;
-					indexes[index] = std::distance(copyList.begin(), iter);
-					iter->level_ = PokerLevel::INVALID;
-					break;
-				}
-				else
-				{
-					++iter;
-				}
-			}
-			if (!isTarget)
-			{
-				LOG_INFO << "isTarget: " << isTarget;
-				LOG_INFO << "return indexes.size(): " << indexes.size();
-				return std::vector<int>();
-			}
-		}
-		std::sort(indexes.begin(), indexes.end());
-//		LOG_INFO << "return indexes.size(): " << indexes.size();
-		return indexes;
-	}
+	static std::vector<int> getIndexes(const std::vector<PokerLevel> &options, const std::vector<Poker> &pokers);
 
 	static void init()
 	{
@@ -208,7 +122,6 @@ private:
 			SellType sellType,
 			SellType targetSellType)
 	{
-		LOG_INFO << "parseArgs";
 		std::unordered_set<int> existLevelSet = std::unordered_set<int>();
 		for (auto &p: *(pokerSell.getSellPokers()))
 		{
@@ -233,7 +146,6 @@ private:
 					  std::back_inserter(allPokers));
 			for (auto ps: pokersList)
 			{
-				LOG_INFO << "PokerHelper::139";
 				std::copy(ps->begin(),              // 插入到
 						  ps->end(),
 						  std::back_inserter(allPokers));
@@ -242,16 +154,12 @@ private:
 			return;
 		}
 
-		LOG_INFO << pokerSells.size();
 		for (int index = 0; index < pokerSells.size(); ++index)
 		{
-			LOG_INFO << deep;
-			LOG_INFO << "PokerHelper::149 " << index;
 			PokerSell &subSell = pokerSells.at(index);
 			if (subSell.getSellType() == sellType &&
 				existLevelSet->find(subSell.getCoreLevel()) == existLevelSet->end())
 			{
-				LOG_INFO << "154 " << existLevelSet->size();
 				pokersList.insert(subSell.getSellPokers());
 				existLevelSet->insert(subSell.getCoreLevel());
 				parseArgs(existLevelSet, pokerSells, pokersList, pokerSell,

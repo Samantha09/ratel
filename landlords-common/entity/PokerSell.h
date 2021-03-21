@@ -22,6 +22,9 @@ private:
 
 public:
 	PokerSell(SellType sellType, std::vector<Poker> sellPokers, int coreLevel);
+
+	PokerSell()
+		: score_(0), sellType_(SellType::VOID_SELL), sellPokers_(std::vector<Poker>()), coreLevel_(-1){}
 	// 有点不太理解这个
 	int getCoreLevel()
 	{

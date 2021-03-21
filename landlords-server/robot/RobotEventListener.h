@@ -19,7 +19,7 @@ class RobotEventListener
 {
 public:
 	typedef void(*RobotEventFunc)(
-			     ClientSide *robot,
+				 ClientSide *robot,
 			 	 ProtobufCodec *codec,
 				 const muduo::net::TcpConnectionPtr &conn,
 				 const MapHelper &mapHelper);

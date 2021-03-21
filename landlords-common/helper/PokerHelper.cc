@@ -9,11 +9,103 @@
 //#include "PokerSell.h"
 #include <algorithm>
 #include "entity/Poker.h"
-#include "muduo/base/Logging.h"
+//#include "muduo/base/Logging.h"
+#include <iostream>
 
 std::vector<Poker> PokerHelper::basePokers_ = std::vector<Poker>();
 PokerHelper::PokerHelper() {
 	// TODO Auto-generated constructor stub
+}
+
+void PokerHelper::removeAll(std::vector<Poker>& pokers, std::vector<Poker> &currentPokers)
+{
+//		LOG_WARN << "空函数";
+	LOG_WARN << "currentPokers.size(): " << currentPokers.size();
+	for (auto p: currentPokers)
+	{
+		auto res = std::find_if(pokers.begin(), pokers.end(), [p](Poker t){return p.level_ == t.level_;});
+		if (res != pokers.end())
+		{
+			pokers.erase(res);
+		}
+	}
+}
+
+std::vector<Poker> PokerHelper::getPoker(const std::vector<int> &indexes,
+						                 const std::vector<Poker> pokers)
+{
+//	LOG_DEBUG << "getPoker";
+	std::vector<Poker> resultPokers;
+	for (int index: indexes)
+	{
+		// LOG_INFO << 这里没有减1
+		resultPokers.push_back(pokers.at(index));
+	}
+
+	sortPoker(resultPokers);
+	return resultPokers;
+}
+
+bool PokerHelper::checkPokerIndex(const std::vector<int> &indexes,
+							      const std::vector<Poker> &pokers)
+{
+	bool access = true;
+	if (indexes.empty())
+	{
+		access = false;
+	}
+	else
+	{
+		for (int index: indexes)
+		{
+			if (index > pokers.size() || index < 0)
+			{
+//				LOG_DEBUG << "index: " << index << " pokers.size(): " << pokers.size();
+				access = false;
+			}
+		}
+	}
+	return access;
+}
+
+std::vector<int> PokerHelper::getIndexes(const std::vector<PokerLevel> &options, const std::vector<Poker> &pokers)
+{
+	// FIXME
+	std::vector<int> indexes(options.size());
+	std::vector<Poker> copyList(pokers);
+	for (int index = 0; index < options.size(); ++index)
+	{
+//		LOG_INFO << "index: " << index;
+		PokerLevel option = options.at(index);
+		bool isTarget = false;
+		auto iter = copyList.begin();
+		while (iter != copyList.end())
+		{
+//				LOG_INFO << "copyList.size(): " << copyList.size();
+//				LOG_INFO << "iter_index: " << std::distance(copyList.begin() ,iter);
+			Poker poker = *iter;
+			if (poker.level_ == option)
+			{
+				isTarget = true;
+				indexes[index] = std::distance(copyList.begin(), iter);
+				iter->level_ = PokerLevel::INVALID;
+				break;
+			}
+			else
+			{
+				++iter;
+			}
+		}
+		if (!isTarget)
+		{
+//			LOG_INFO << "isTarget: " << isTarget;
+//			LOG_INFO << "return indexes.size(): " << indexes.size();
+			return std::vector<int>();
+		}
+	}
+	std::sort(indexes.begin(), indexes.end());
+//		LOG_INFO << "return indexes.size(): " << indexes.size();
+	return indexes;
 }
 
 void PokerHelper::sortPoker(std::vector<Poker> &pokers)
@@ -31,7 +123,6 @@ std::string PokerHelper::printPokers(std::vector<Poker> pokers)
 // checkPokerType
 PokerSell PokerHelper::checkPokerType(std::vector<Poker> pokers)
 {
-
 	if (!pokers.empty())
 	{
 		sortPoker(pokers);
@@ -219,7 +310,42 @@ PokerSell PokerHelper::checkPokerType(std::vector<Poker> pokers)
 // validSell
 std::vector<PokerSell> PokerHelper::validSells(PokerSell lastPokerSell, std::vector<Poker> &pokers)
 {
-	return std::vector<PokerSell>();
+//	LOG_DEBUG << "validSell 正在解析！";
+	std::vector<PokerSell> sells = PokerHelper::parsePokerSells(pokers);
+	// FIXME: if(lastPokerSell == null)
+	std::cout << sells.size() << std::endl;
+	if (lastPokerSell.getSellType() == SellType::VOID_SELL)
+		return sells;
+
+	std::vector<PokerSell> validSells;
+	for (PokerSell sell: sells)
+	{
+		if (sell.getSellType() == lastPokerSell.getSellType())
+		{
+			if (sell.getScore() > lastPokerSell.getScore() &&
+				sell.getSellPokers()->size() == lastPokerSell.getSellPokers()->size())
+			{
+				validSells.push_back(sell);
+			}
+		}
+
+		if (sell.getSellType() == SellType::KING_BOMB)
+		{
+			validSells.push_back(sell);
+		}
+	}
+
+	if (lastPokerSell.getSellType() != SellType::BOMB)
+	{
+		for (PokerSell sell: sells)
+		{
+			if (sell.getSellType() == SellType::BOMB)
+			{
+				validSells.push_back(sell);
+			}
+		}
+	}
+	return validSells;
 }
 
 
@@ -269,7 +395,7 @@ void PokerHelper::parsePokerSellStraight(std::vector<PokerSell> pokerSells, Sell
 	/*
 	 * 处理顺子
 	 */
-	LOG_INFO << "parsePokerSellStraight";
+//	LOG_INFO << "parsePokerSellStraight";
 	int minLenght = -1;
 	int width = -1;
 	SellType targetSellType;                    // C++中是否合适
@@ -379,7 +505,7 @@ void PokerHelper::parsePokerSellStraight(std::vector<PokerSell> pokerSells, Sell
 
 std::vector<PokerSell> PokerHelper::parsePokerSells(std::vector<Poker> pokers)
 {
-	LOG_INFO << "parsePokerSells";
+	std::cout << "parsePokerSells: " << std::endl;
 	std::vector<PokerSell> pokerSells { };
 	int size = pokers.size();
 
@@ -387,7 +513,7 @@ std::vector<PokerSell> PokerHelper::parsePokerSells(std::vector<Poker> pokers)
 	{
 		int count = 0;
 		int lastLevel = -1;
-		std::vector<Poker> sellPokers(4);
+		std::vector<Poker> sellPokers;
 		for (int index = 0; index < pokers.size(); index++)
 		{
 			Poker poker = pokers.at(index);
@@ -468,7 +594,11 @@ std::vector<PokerSell> PokerHelper::parsePokerSells(std::vector<Poker> pokers)
 			if (pokers.at(size - 1).getLevel() == int(PokerLevel::LEVEL_BIG_KING)
 			    && pokers.at(size - 2).getLevel() == int(PokerLevel::LEVEL_SMALL_KING))
 			{
-
+				std::vector<Poker> temp;
+				temp.push_back(pokers.at(size - 2));
+				temp.push_back(pokers.at(size - 1));
+				pokerSells.push_back(PokerSell(SellType::KING_BOMB,
+									 	 	   temp, int(PokerLevel::LEVEL_BIG_KING)));
 			}
 		}
 	}

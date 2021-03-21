@@ -52,6 +52,10 @@ public:
 		LISTENER_MAP[ClientEventCode::CODE_GAME_POKER_PLAY] = ClientEventListener_CODE_GAME_POKER_PLAY;
 		LISTENER_MAP[ClientEventCode::CODE_GAME_LANDLORD_ELECT] = ClientEventListener_CODE_GAME_LANDLOAD_ELECT;
 		LISTENER_MAP[ClientEventCode::CODE_GAME_POKER_PLAY_ORDER_ERROR] = ClientEventListener_CODE_GAME_POKER_PLAY_ORDER_ERROR;
+		LISTENER_MAP[ClientEventCode::CODE_GAME_OVER] = ClientEventListener_CODE_GAME_OVER;
+		LISTENER_MAP[ClientEventCode::CODE_ROOM_CREATE_SUCCESS] = ClientEventListener_CODE_ROOM_CREATE_SUCCESS;
+		LISTENER_MAP[ClientEventCode::CODE_ROOM_JOIN_SUCCESS] = ClientEventListener_CODE_ROOM_JOIN_SUCCESS;
+		LISTENER_MAP[ClientEventCode::CODE_SHOW_ROOMS] = ClientEventListener_CODE_SHOW_ROOMS;
 	}
 	virtual ~ClientEventListener(){}
 

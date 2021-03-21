@@ -17,6 +17,7 @@
 #include <boost/serialization/vector.hpp>
 #include "boost/serialization/string.hpp"
 #include "boost/serialization/unordered_map.hpp"
+#include "boost/shared_ptr.hpp"
 
 
 #include "enums/ServerEventCode.h"
@@ -62,6 +63,34 @@ public:
 	std::string position;
 };
 
+
+class RoomInfo
+{
+public:
+	RoomInfo()
+		: roomId(0), roomOwner(""), roomClientCount(0), roomType(-1){}
+
+	RoomInfo(int ri, const std::string &ro, int rcc, int rt)
+		: roomId(ri), roomOwner(ro), roomClientCount(rcc), roomType(rt){}
+
+    friend class boost::serialization::access;
+    template<class Archive>
+    void serialize(Archive& ar, const unsigned int version)
+    {
+    	ar & roomId;
+    	ar & roomOwner;
+    	ar & roomClientCount;
+    	ar & roomType;
+    }
+
+    ~RoomInfo(){};
+
+	int roomId;
+	std::string roomOwner;
+	int roomClientCount;
+	int roomType;
+};
+
 class MapHelper {
 public:
 	MapHelper()
@@ -69,9 +98,24 @@ public:
 		  intMap(std::unordered_map<std::string, int>()),
 		  pokerVecMap(std::unordered_map<std::string, std::vector<Poker> >()),
 		  levelVecMap(std::unordered_map<std::string, std::vector<PokerLevel> >()),
-		  clientSideVecMap(std::unordered_map<std::string, std::vector<ClientSide> >()),
-		  clientInfos(std::unordered_map<std::string, std::vector<ClientInfo> >())
+		  clientInfos(std::unordered_map<std::string, std::vector<ClientInfo> >()),
+		  roomInfos(std::unordered_map<std::string, std::vector<RoomInfo> >())
 	{}
+
+	MapHelper(const MapHelper &mh)
+	{
+		strMap = mh.strMap;
+		intMap = mh.intMap;
+		pokerVecMap = mh.pokerVecMap;
+		levelVecMap = mh.levelVecMap;
+		clientInfos = mh.clientInfos;
+		roomInfos = mh.roomInfos;
+	}
+
+	void setValue(const std::string &k, int v)
+	{
+		intMap[k] = v;
+	}
 
 	MapHelper &put(const std::string &k, const std::string &v)
 	{
@@ -97,15 +141,15 @@ public:
 		return *this;
 	}
 
-	MapHelper &put(const std::string &k, const std::vector<ClientSide> &v)
-	{
-		clientSideVecMap.insert(std::make_pair(k, v));
-		return *this;
-	}
-
 	MapHelper &put(const std::string &k, const std::vector<ClientInfo> &v)
 	{
 		clientInfos.insert(std::make_pair(k, v));
+		return *this;
+	}
+
+	MapHelper &put(const std::string &k, const std::vector<RoomInfo> &v)
+	{
+		roomInfos.insert(std::make_pair(k, v));
 		return *this;
 	}
 
@@ -145,15 +189,6 @@ public:
 		return std::vector<PokerLevel>();
 	}
 
-	std::vector<ClientSide> get(const std::string &k, std::vector<ClientSide>)
-	{
-		if (clientSideVecMap.find(k) != clientSideVecMap.end())
-		{
-			return clientSideVecMap.find(k)->second;
-		}
-		return std::vector<ClientSide>();
-	}
-
 	std::vector<ClientInfo> get(const std::string &k, std::vector<ClientInfo>) const
 	{
 		if (clientInfos.find(k) != clientInfos.end())
@@ -161,6 +196,15 @@ public:
 			return clientInfos.find(k)->second;
 		}
 		return std::vector<ClientInfo>();
+	}
+
+	std::vector<RoomInfo> get(const std::string &k, std::vector<RoomInfo>) const
+	{
+		if (roomInfos.find(k) != roomInfos.end())
+		{
+			return roomInfos.find(k)->second;
+		}
+		return std::vector<RoomInfo>();
 	}
 
 private:
@@ -172,16 +216,16 @@ private:
 		ar & pokerVecMap;
 		ar & intMap;
 		ar & levelVecMap;
-		ar & clientSideVecMap;
 		ar & clientInfos;
+		ar & roomInfos;
     }
 
 	std::unordered_map<std::string, std::string> strMap;
 	std::unordered_map<std::string, std::vector<Poker> > pokerVecMap;
 	std::unordered_map<std::string, int> intMap;
 	std::unordered_map<std::string, std::vector<PokerLevel> > levelVecMap;
-	std::unordered_map<std::string, std::vector<ClientSide> > clientSideVecMap;
 	std::unordered_map<std::string, std::vector<ClientInfo> > clientInfos;
+	std::unordered_map<std::string, std::vector<RoomInfo> > roomInfos;
 };
 
 

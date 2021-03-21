@@ -19,16 +19,14 @@ void ClientEventListener_CODE_CLIENT_EXIT(ProtobufCodec *codec, const muduo::net
 //		ClientEventCode code, const std::string &data);
 void ClientEventListener_CODE_CLIENT_NICKNAME_SET(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 												  int clientId, const MapHelper &data);
-//void ClientEventListener_CODE_GAME_LANDLOAD_SET(const muduo::net::TcpConnectionPtr &conn,
-//		ClientEventCode code, const std::string &data);
 void ClientEventListener_CODE_GAME_LANDLOAD_CONFIRM(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 		  	  	  	  	  	  	  	  	  	  	  	int clientId, const MapHelper &data);
 //void ClientEventListener_CODE_GAME_LANDLOAD_CYCLE(const muduo::net::TcpConnectionPtr &conn,
 //		ClientEventCode code, const std::string &data);
 void ClientEventListener_CODE_GAME_LANDLOAD_ELECT(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 		  	  	  	  	  	  	  	  	  	      int clientId, const MapHelper &data);
-//void ClientEventListener_CODE_GAME_OVER(const muduo::net::TcpConnectionPtr &conn,
-//		ClientEventCode code, const std::string &data);
+void ClientEventListener_CODE_GAME_OVER(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	  	  	      int clientId, const MapHelper &data);
 //void ClientEventListener_CODE_GAME_POKER_PLAY_CANT_PASS(const muduo::net::TcpConnectionPtr &conn,
 //		ClientEventCode code, const std::string &data);
 void ClientEventListener_CODE_GAME_POKER_PLAY_INVALID(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
@@ -53,14 +51,14 @@ void ClientEventListener_CODE_GAME_STARTING(ProtobufCodec *codec, const muduo::n
 //		ClientEventCode code, const std::string &data);
 //void ClientEventListener_CODE_PVE_DIFFICULT_NOT_SUPPORT(const muduo::net::TcpConnectionPtr &conn,
 //		ClientEventCode code, const std::string &data);
-//void ClientEventListener_CODE_ROOM_CREATE_SUCCESS(const muduo::net::TcpConnectionPtr &conn,
-//		ClientEventCode code, const std::string &data);
+void ClientEventListener_CODE_ROOM_CREATE_SUCCESS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	  	  	    int clientId, const MapHelper &data);
 //void ClientEventListener_CODE_ROOM_JOIN_FAIL_BY_FULL(const muduo::net::TcpConnectionPtr &conn,
 //		ClientEventCode code, const std::string &data);
 //void ClientEventListener_CODE_ROOM_JOIN_FAIL_BY_INEXIST(const muduo::net::TcpConnectionPtr &conn,
 //		ClientEventCode code, const std::string &data);
-//void ClientEventListener_CODE_ROOM_JOIN_SUCCESS(const muduo::net::TcpConnectionPtr &conn,
-//		ClientEventCode code, const std::string &data);
+void ClientEventListener_CODE_ROOM_JOIN_SUCCESS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	    									int clientId, const MapHelper &data);
 //void ClientEventListener_CODE_ROOM_PLAY_FAIL_BY_INEXIST(const muduo::net::TcpConnectionPtr &conn,
 //		ClientEventCode code, const std::string &data);
 void ClientEventListener_CODE_SHOW_OPTION_PVE(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
@@ -73,8 +71,8 @@ void ClientEventListener_CODE_SHOW_OPTIONS(ProtobufCodec *codec, const muduo::ne
 		  	  	  	  	  	  	  	       int clientId, const MapHelper &data);
 void ClientEventListener_CODE_SHOW_POKERS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 		  	  	  	  	  	  	  	  	  int clientId, const MapHelper &data);
-//void ClientEventListener_CODE_SHOW_ROOMS(const muduo::net::TcpConnectionPtr &conn,
-//		ClientEventCode code, const std::string &data);
+void ClientEventListener_CODE_SHOW_ROOMS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	  	  	  	  	  	  	  	  	 int clientId, const MapHelper &data);
 //
 
 void pushDataToServer(ProtobufCodec *codec,

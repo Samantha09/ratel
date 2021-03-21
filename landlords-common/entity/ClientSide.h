@@ -22,8 +22,8 @@ class ClientSide {
 public:
 	// 构造函数和析构函数
 	ClientSide(): id_(0), status_(0){ init(); };
-	ClientSide(int id, ClientStatus status)
-		: id_(id), status_(int(status))
+	ClientSide(int id, ClientStatus status, const muduo::net::TcpConnectionPtr& conn)
+		: id_(id), status_(int(status)), conn_(conn)
 	{
 		init();
 		// TODO Auto-generated constructor stub
@@ -37,167 +37,14 @@ public:
 		status_ = cs.status_;
 		role_ = cs.role_;
 		type_ = cs.type_;
-//		pre_ = new ClientSide(*cs.pre_);
-//		next_ = new ClientSide(*cs.next_);
+		pre_ = cs.pre_;
+		next_ = cs.next_;
 		pre_ = cs.pre_;
 		next_ = cs.next_;
 	}
 	~ClientSide(){
-//		delete pre_;
-//		delete next_;
 		// FIXME 内存泄露
 	};
-
-	template<class Archive>
-	void tosave(Archive & ar)
-	{
-		// serialize base class information
-		ar << BOOST_SERIALIZATION_NVP(id_);
-		ar << BOOST_SERIALIZATION_NVP(nickname_);
-		ar << BOOST_SERIALIZATION_NVP(pokers_);
-		ar << BOOST_SERIALIZATION_NVP(role_);
-		ar << BOOST_SERIALIZATION_NVP(roomId_);
-		ar << BOOST_SERIALIZATION_NVP(status_);
-		ar << BOOST_SERIALIZATION_NVP(type_);
-
-		bool is_null;
-		if (pre_ != NULL)
-		{
-			is_null = false;
-			ar << boost::serialization::make_nvp("pre_", is_null);
-			pre_->tosave(ar);
-		}
-		else
-		{
-			is_null = true;
-			ar << boost::serialization::make_nvp("pre_", is_null);
-		}
-
-		if (next_ != 0)
-		{
-			is_null = false;
-			ar << boost::serialization::make_nvp("next_", is_null);
-			next_->tosave(ar);
-		}
-		else
-		{
-			is_null = true;
-			ar << boost::serialization::make_nvp("next_", is_null);
-		}
-	}  // namespace serialization
-
-	template<class Archive>
-	void save(Archive& ar, const unsigned int version) const
-	{
-		ar << BOOST_SERIALIZATION_NVP(id_);
-		ar << BOOST_SERIALIZATION_NVP(nickname_);
-		ar << BOOST_SERIALIZATION_NVP(pokers_);
-		ar << BOOST_SERIALIZATION_NVP(role_);
-		ar << BOOST_SERIALIZATION_NVP(roomId_);
-		ar << BOOST_SERIALIZATION_NVP(status_);
-		ar << BOOST_SERIALIZATION_NVP(type_);
-
-		bool is_null;
-		if (pre_ != NULL)
-		{
-			is_null = false;
-			ar << boost::serialization::make_nvp("pre_", is_null);
-			pre_->tosave(ar);
-		}
-		else
-		{
-			is_null = true;
-			ar << boost::serialization::make_nvp("pre_", is_null);
-		}
-
-		if (next_ != 0)
-		{
-			is_null = false;
-			ar << boost::serialization::make_nvp("next_", is_null);
-			next_->tosave(ar);
-		}
-		else
-		{
-			is_null = true;
-			ar << boost::serialization::make_nvp("next_", is_null);
-		}
-	}
-
-
-	template<class Archive>
-	void load(Archive& ar,  const unsigned int version)
-	{
-		ClientSide *p = new ClientSide;
-		ar >> BOOST_SERIALIZATION_NVP(p->id_);
-		ar >> BOOST_SERIALIZATION_NVP(p->nickname_);
-		ar >> BOOST_SERIALIZATION_NVP(p->pokers_);
-		ar >> BOOST_SERIALIZATION_NVP(p->role_);
-		ar >> BOOST_SERIALIZATION_NVP(p->roomId_);
-		ar >> BOOST_SERIALIZATION_NVP(p->status_);
-		ar >> BOOST_SERIALIZATION_NVP(p->type_);
-
-		bool is_null;
-		ar >> boost::serialization::make_nvp("pre_isnull", is_null);
-		if (is_null)
-		{
-			p->pre_ = NULL;
-		}
-		else
-		{
-			p->pre_ = new ClientSide;
-			Toload(ar, p->pre_);
-		}
-
-		ar >> boost::serialization::make_nvp("next_isnull", is_null);
-		if (is_null)
-		{
-			p->next_ = NULL;
-		}
-		else
-		{
-			p->next_ = new ClientSide;
-			Toload(ar, p->next_);
-		}
-
-		*this = *p;
-		delete p;
-		p = NULL;
-	}
-
-	template<class Archive>
-	void Toload(Archive& ar,  ClientSide *p)
-	{
-		ar >> BOOST_SERIALIZATION_NVP(p->id_);
-		ar >> BOOST_SERIALIZATION_NVP(p->nickname_);
-		ar >> BOOST_SERIALIZATION_NVP(p->pokers_);
-		ar >> BOOST_SERIALIZATION_NVP(p->role_);
-		ar >> BOOST_SERIALIZATION_NVP(p->roomId_);
-		ar >> BOOST_SERIALIZATION_NVP(p->status_);
-		ar >> BOOST_SERIALIZATION_NVP(p->type_);
-
-		bool is_null;
-		ar >> boost::serialization::make_nvp("pre_isnull", is_null);
-		if (is_null)
-		{
-			p->pre_ = NULL;
-		}
-		else
-		{
-			p->pre_ = new ClientSide;
-			Toload(ar, p->pre_);
-		}
-
-		ar >> boost::serialization::make_nvp("next_isnull", is_null);
-		if (is_null)
-		{
-			p->next_ = NULL;
-		}
-		else
-		{
-			p->next_ = new ClientSide;
-			Toload(ar, p->next_);
-		}
-	}
 
 	// getter and setter
 	ClientRole getRole() { return ClientRole(role_); }
@@ -207,8 +54,12 @@ public:
 	ClientStatus getStatus() { return ClientStatus(status_); }
 	ClientType getType() { return ClientType(type_); }
 	int getId() { return id_; }
-	ClientSide &getNext() { return *next_; }
-	ClientSide &getPre() { return *pre_; }
+	std::shared_ptr<ClientSide> getNext() { return next_; }
+	std::shared_ptr<ClientSide> getPre() { return pre_; }
+	muduo::net::TcpConnectionPtr& getConn()
+	{
+		return conn_;
+	}
 
 	void setRole(ClientRole role) { role_ = int(role); }
 	void setNickname(std::string nickname) { nickname_ = nickname; }
@@ -217,8 +68,12 @@ public:
 	void setStatus(ClientStatus status) { status_ = int(status); }
 	void setType(ClientType type) { type_ = int(type); }
 	void setId(int id) { id_ = id; }
-	void setNext(ClientSide *next) { next_ = next; }
-	void setPre(ClientSide *pre) { pre_ = pre; }
+	void setNext(std::shared_ptr<ClientSide> next) { next_ = next; }
+	void setPre(std::shared_ptr<ClientSide> pre) { pre_ = pre; }
+	void setConn(const muduo::net::TcpConnectionPtr& conn)
+	{
+		conn_ = conn;
+	}
 
 	void init()
 	{
@@ -230,7 +85,6 @@ public:
 		pre_ = NULL;
 		next_ = NULL;
 	};
-	BOOST_SERIALIZATION_SPLIT_MEMBER();
 
 public:
 	int id_;
@@ -240,8 +94,9 @@ public:
 	int status_;
 	int role_;              // player or robot
 	int type_;              // 地主or农民
-	ClientSide *pre_;
-	ClientSide *next_;
+	std::shared_ptr<ClientSide> pre_;
+	std::shared_ptr<ClientSide> next_;
+	muduo::net::TcpConnectionPtr conn_;
 
 private:
 	friend class boost::serialization::access;

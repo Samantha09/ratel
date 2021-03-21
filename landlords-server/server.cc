@@ -73,13 +73,14 @@ class QueryServer : noncopyable
         << conn->localAddress().toIpPort() << " is "
         << (conn->connected() ? "UP" : "DOWN");
 
-    ClientSide *clientSide(new ClientSide(21, ClientStatus::TO_CHOOSE));
+    ClientSide *clientSide(new ClientSide(ServerContains::getClientId(), ClientStatus::TO_CHOOSE, conn));
     clientSide->setRole(ClientRole::PLAYER);
+    clientSide->setConn(conn);
 
     ServerContains::CLIENT_SIDE_MAP.insert(std::make_pair(clientSide->getId(), clientSide));
 
-//    pushToClient(conn, ClientEventCode::CODE_CLIENT_CONNECT, std::to_string(clientSide.getId()));
-    pushToClient(conn, ClientEventCode::CODE_CLIENT_NICKNAME_SET, MapHelper());
+    pushToClient(conn, ClientEventCode::CODE_GAME_ID_SET, MapHelper().put("clientId", clientSide->getId()));
+//    pushToClient(conn, ClientEventCode::CODE_CLIENT_NICKNAME_SET, MapHelper().put("clientId", clientSide->getId()));
   }
 
   void pushToClient(const TcpConnectionPtr& conn, ClientEventCode code, const MapHelper &data)
@@ -138,36 +139,26 @@ int main(int argc, char* argv[])
 
 	PokerHelper ph;
 	PokerHelper::init();
-
-	// FIXME: 不知道为啥，总之莫名其妙
-//	SerializeHelper sl;
-	  /*
-   * 静态对象总是会莫名其妙
-   */
-
 	RobotDecisionMakers rbd;
 	RobotDecisionMakers::init();
 
 	RobotEventListener rl;
 	RobotEventListener::init();
 
-
 	ServerContains sc;
-
-
   LOG_INFO << "pid = " << getpid();
-  if (argc > 1)
+  if (argc > 2)
   {
     EventLoop loop;
-    uint16_t port = static_cast<uint16_t>(atoi(argv[1]));
-    InetAddress serverAddr(port);
+    uint16_t port = static_cast<uint16_t>(atoi(argv[2]));
+    InetAddress serverAddr(argv[1], port);
     QueryServer server(&loop, serverAddr);
     server.start();
     loop.loop();
   }
   else
   {
-    printf("Usage: %s port\n", argv[0]);
+    printf("Usage: %s ip port\n", argv[0]);
   }
 }
 

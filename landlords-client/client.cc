@@ -64,17 +64,15 @@ class QueryClient : noncopyable
                 const AnswerPtr& message,
                 muduo::Timestamp)
   {
-//	  if (message->id() == int(ClientEventCode::CODE_CLIENT_CONNECT))
-//	  {
-//		  setId(atoi(message->solution(0).c_str()));
-//	  }
-//	  else
-
-//	    MutexLockGuard lock(mutex_);
+	  LOG_DEBUG << "id: " << id_;
 	  MapHelper result = SerializeHelper::parseStringToData<MapHelper>(message->solution(0));
-	  clientEventListener(conn, id_, ClientEventCode(message->id()), result);
-
-//    LOG_INFO << "onAnswer:\n" << message->GetTypeName() << message->DebugString();
+	  if (ClientEventCode(message->id()) == ClientEventCode::CODE_GAME_ID_SET)
+	  {
+		  id_ =  result.get("clientId", 0);
+		  ClientEventListener_CODE_CLIENT_NICKNAME_SET(&codec_, conn, id_, MapHelper());
+	  }
+	  else
+	  	  clientEventListener(conn, id_, ClientEventCode(message->id()), result);
   }
 
   void onEmpty(const muduo::net::TcpConnectionPtr&,
@@ -84,25 +82,7 @@ class QueryClient : noncopyable
     LOG_INFO << "onEmpty: " << message->GetTypeName();
   }
 
-//	void pushToServer(const muduo::net::TcpConnectionPtr &conn,
-//					  ServerEventCode code,
-//					  const std::string &data = "")
-//	{
-////		MutexLockGuard lock(mutex_)
-//		ClientTransferData res(id_, code, data);
-//		std::string result = SerializeHelper::SerializeToString<ClientTransferData>(res);
-//		muduo::Query query;
-//		query.set_id(int(cod
-//		query.set_questioner("san");
-//		query.add_question(result);
-//	    codec_.send(conn, query);
-//	}
-
-
-
-
  private:
-
   void onConnection(const TcpConnectionPtr& conn)
   {
     LOG_DEBUG << conn->localAddress().toIpPort() << " -> "
@@ -127,7 +107,7 @@ class QueryClient : noncopyable
     LOG_INFO << "onUnknownMessage: " << message->GetTypeName();
   }
 
-  const int id_ = 21;                                 // room id
+  int id_;                                 // room id
   EventLoop* loop_;
   TcpClient client_;
   ProtobufDispatcher dispatcher_;

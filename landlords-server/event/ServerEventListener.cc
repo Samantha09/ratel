@@ -29,6 +29,9 @@ ServerEventListener::ServerEventListener()
 	LISTENER_MAP[ServerEventCode::CODE_GAME_POKER_PLAY_REDIRECT] = ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT;
 	LISTENER_MAP[ServerEventCode::CODE_GAME_LANDLORD_ELECT] = ServerEventListener_CODE_GAME_LANDLORD_ELECT;
 	LISTENER_MAP[ServerEventCode::CODE_GAME_POKER_PLAY_PASS] = ServerEventListener_CODE_GAME_POKER_PLAY_PASS;
+	LISTENER_MAP[ServerEventCode::CODE_ROOM_CREATE] = ServerEventListener_CODE_ROOM_CREATE;
+	LISTENER_MAP[ServerEventCode::CODE_ROOM_JOIN] = ServerEventListener_CODE_ROOM_JOIN;
+	LISTENER_MAP[ServerEventCode::CODE_GET_ROOMS] = ServerEventListener_CODE_GET_ROOMS;
 }
 
 

@@ -36,6 +36,9 @@ public:
 	int getType() { return int(type_); }
 	int getLevel() { return int(level_); }
 
+	int getType() const { return int(type_); }
+	int getLevel() const { return int(level_); }
+
 	std::string getTypeStr() { return POKERTYPE[int(type_)]; }
 	std::string getLevelStr() { return POKERLEVEL[int(level_)]; }
 

@@ -9,9 +9,6 @@
 #include "EventFuns.h"
 #include "muduo/base/Mutex.h"
 
-//muduo::MutexLock mutex_1;
-
-
 void pushDataToServer(ProtobufCodec *codec,
 					  const muduo::net::TcpConnectionPtr &conn,
 					  ServerEventCode code,
@@ -35,6 +32,59 @@ void ClientEventListener_CODE_CLIENT_EXIT(ProtobufCodec *codec,
 {
 	LOG_DEBUG << "CODE_CLIENT_EXIT";
 	exit(0);
+}
+
+void ClientEventListener_CODE_ROOM_CREATE_SUCCESS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	  	  	    							  int clientId, const MapHelper &data)
+{
+	assert(data.get("roomId", 0) != 0);
+	std::cout << "You have created a room with id " << data.get("roomId", 0)
+			  << std::endl;
+	std::cout << "Please wait for other players to join !" << std::endl;
+}
+
+void ClientEventListener_CODE_ROOM_JOIN_SUCCESS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	    									int clientId, const MapHelper &data)
+{
+	LOG_DEBUG << "有人加入了房间";
+	int joinClientId = data.get("joinClientId", 0);
+	assert(joinClientId != 0);
+	if (clientId == joinClientId)
+	{
+		std::cout << "You have joined room：" << data.get("roomId", 0) << ". There are currently "
+				  << data.get("roomClientCount", 0) << " players in the room now." << std::endl;
+		std::cout << "Please wait for other players to join. The game would start at three players!"
+				  << std::endl;
+	}
+	else
+	{
+		std::cout << data.get("clientNickname", "") <<  " joined room, there are currently "
+				  << data.get("roomClientCount", 0) << " in the room." << std::endl;
+	}
+}
+
+void ClientEventListener_CODE_SHOW_ROOMS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	  	  	  	  	  	  	  	  	 int clientId, const MapHelper &data)
+{
+	std::cout << "\t" << "ID" << "\t|" << "OWNER" << "\t|" << "COUNT" << "\t|"
+			  << "TYPE" << std::endl;
+	std::vector<RoomInfo> roomInfos = data.get("roomInfos", std::vector<RoomInfo>());
+	assert(!roomInfos.empty());
+	if (!roomInfos.empty())
+	{
+		for (const RoomInfo &ri: roomInfos)
+		{
+			std::cout << "\t" << ri.roomId << "\t|" << ri.roomOwner << "\t|"
+					  << ri.roomClientCount << "\t|" << (ri.roomType ? "PVE" : "PVP") << std::endl;
+		}
+		ClientEventListener_CODE_SHOW_OPTION_PVP(codec, conn, clientId, data);
+	}
+	else
+	{
+		std::cout << "No available room. Please create a room!" << std::endl;
+		ClientEventListener_CODE_SHOW_OPTION_PVP(codec, conn, clientId, data);
+	}
+
 }
 
 // SHOW_POKERS
@@ -197,7 +247,79 @@ void ClientEventListener_CODE_SHOW_OPTION_PVP(ProtobufCodec *codec,
 											  int clientId,
 											  const MapHelper &data)
 {
+	std::cout << "PVP: " << std::endl;
+	std::cout << "1. Create Room" << std::endl;
+	std::cout << "2. Room List" << std::endl;
+	std::cout << "3. Join Room" << std::endl;
+	std::cout << "Please select an option above (enter [back|b] to return to options list)" << std::endl;
 
+	printf("pvp: ");
+	fflush(stdout);
+
+	std::string line;
+	std::cin >> line;
+
+	std::transform(line.begin(),line.end(), line.begin(), ::tolower);  // 转换为小写
+
+	if (line == "back" || line == "b")
+	{
+		ClientEventListener_CODE_SHOW_OPTIONS(codec, conn, clientId, data);
+	}
+	else
+	{
+		int choose = std::stoi(line);
+
+		if (choose == 1)
+		{
+			pushDataToServer(codec, conn,
+							 ServerEventCode::CODE_ROOM_CREATE,
+							 MapHelper().put("clientId", clientId));
+		}
+		else if (choose == 2)
+		{
+			pushDataToServer(codec, conn,
+							 ServerEventCode::CODE_GET_ROOMS,
+							 MapHelper().put("clientId", clientId));
+		}
+		else if (choose == 3)
+		{
+			std::cout << "Please enter the room id you wish to join (enter [back|b] to return to options list)"
+					  << std::endl;
+
+			std::string roomIdChoosed;
+			printf("roomid:");
+			fflush(stdout);
+			std::cin >> roomIdChoosed;
+
+			if (roomIdChoosed == "back" || line == "b")
+			{
+				ClientEventListener_CODE_SHOW_OPTION_PVP(codec, conn, clientId, data);
+			}
+			else
+			{
+				int option = std::stoi(roomIdChoosed);
+				if (line == "" || option < 1)
+				{
+					std::cout << "Invalid option, please choose again："\
+							  << std::endl;
+					ClientEventListener_CODE_SHOW_OPTION_PVP(codec, conn, clientId, data);
+				}
+				else
+				{
+					pushDataToServer(codec, conn,
+							         ServerEventCode::CODE_ROOM_JOIN,
+							         MapHelper().put("option", option)
+									 	 	 	.put("clientId", clientId));
+				}
+			}
+		}
+		else
+		{
+			std::cout << "Invalid option, please choose again："
+					  << std::endl;
+			ClientEventListener_CODE_SHOW_OPTION_PVP(codec, conn, clientId, data);
+		}
+	}
 }
 
 void ClientEventListener_CODE_CLIENT_NICKNAME_SET(ProtobufCodec *codec,
@@ -205,6 +327,7 @@ void ClientEventListener_CODE_CLIENT_NICKNAME_SET(ProtobufCodec *codec,
 												  int clientId,
 												  const MapHelper &data)
 {
+	LOG_DEBUG << "测试客户端ID： " << clientId;
 	if (data.get("invalidLength", 0) != 0)
 	{
 		std::cout << "Your nickname has invalid length: " << data.get("invalidLength", 0)
@@ -230,7 +353,6 @@ void ClientEventListener_CODE_GAME_STARTING(ProtobufCodec *codec,
 										    int clientId,
 										    const MapHelper &data)
 {
-//	ServerTransferData result = SerializeHelper::parseStringToData<ServerTransferData>(data);
 	std::cout << "Game starting! Your cards are: " << std::endl;
 	assert(!data.get("pokers", std::vector<Poker>()).empty());
 	std::cout << PokerHelper::printPokers(data.get("pokers", std::vector<Poker>()))
@@ -338,7 +460,6 @@ void ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec,
 	std::string choose[2]{ "up", "down" };
 	std::cout << "everyone's current situations: " << std::endl;
 
-	// FIXME: index is 3 or 2?
 	for (int index = 0; index < 2; ++index)
 	{
 		for (ClientInfo info: clientInfos)
@@ -347,11 +468,8 @@ void ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec,
 			std::string str_type = int(info.type) ? "PEASANT" : "LANDLORD";
 			if (position == choose[index])
 			{
-				printf("%s\t%d [%s]", info.clientNickname.c_str(), info.surplus, str_type.c_str());
+				printf("%s\t%d [%s]\n", info.clientNickname.c_str(), info.surplus, str_type.c_str());
 				fflush(stdout);
-//				LOG_INFO << info.clientNickname << "\t"
-//						 << std::to_string(info.surplus) << " " << "["
-//						 << str_type << "]";
 			}
 		}
 	}
@@ -430,7 +548,13 @@ bool parseLine(const std::string &line, std::vector<PokerLevel> &levels)
 		case 'S':
 			levels.push_back(PokerLevel::LEVEL_SMALL_KING);
 			break;
+		case 's':
+			levels.push_back(PokerLevel::LEVEL_SMALL_KING);
+			break;
 		case 'X':
+			levels.push_back(PokerLevel::LEVEL_BIG_KING);
+			break;
+		case 'x':
 			levels.push_back(PokerLevel::LEVEL_BIG_KING);
 			break;
 		default:
@@ -453,10 +577,10 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec,
 
 	std::cout << "Please enter the combination you came up with (enter [exit|e] to exit current room, enter [pass|p] to jump current round, enter [view|v] to show all valid combinations.)"
 			  << std::endl;
-	std::cout << "combination" << std::endl;
+	std::cout << "combination: " << std::endl;
 
-	char line[100];
-	scanf("%s", line);
+	std::string line;
+	std::cin >> line;
 	std::transform(std::begin(line),std::end(line), std::begin(line), ::tolower);  // 转换为小写
 
 	if (line == "")
@@ -486,7 +610,7 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec,
 			if (data.get("lastSellPokers", std::vector<Poker>()).empty() ||
 				data.get("lastSellClientId", 0) == 0)
 			{
-				std::cout << "Current server version unsupport this feature, need more than v1.2.4."
+				std::cout << "you are the first order!!!"
 						  << std::endl;
 				ClientEventListener_CODE_GAME_POKER_PLAY(codec, conn, clientId, data);
 				return;
@@ -513,7 +637,6 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec,
 
 				for(int i = 0; i < sells.size(); ++i)
 				{
-
 					// FIXME:
 					std::cout << "please complete here"
 							  << std::endl;
@@ -524,11 +647,11 @@ void ClientEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec,
 					std::cout << "You can enter index to choose anyone.(enter [back|b] to go back.)"
 							  << std::endl;
 
+
 					std::string lineInner;
 					printf("please choose: ");
 					std::cin >> lineInner;
-
-//					std::transform(lineInner.begin(),lineInner.end(), line.begin(), ::tolower);  // 转换为小写
+					std::transform(std::begin(lineInner),std::end(lineInner), std::begin(lineInner), ::tolower);  // 转换为小写
 
 					if (line == "back" || line == "b")
 					{
@@ -626,4 +749,12 @@ void ClientEventListener_CODE_GAME_POKER_PLAY_ORDER_ERROR(ProtobufCodec *codec, 
 {
 	std::cout << "It is not your turn yet. Please wait for other players!"
 			  << std::endl;
+}
+
+void ClientEventListener_CODE_GAME_OVER(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+	  	  	  	      	  	  	  	    int clientId, const MapHelper &data)
+{
+	std::cout << "\nPlayer " << data.get("winnerNickname", "") << " ["
+			  << data.get("winnerType", "") << "]" << "won the game" << std::endl;
+	std::cout << "Game over, friendship first, competition second\n" << std::endl;
 }

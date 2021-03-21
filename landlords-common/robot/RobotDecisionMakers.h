@@ -43,7 +43,7 @@ public:
 	{
 		LOG_DEBUG << "howToPlayPokers";
 		LOG_DEBUG << "difficultyCoefficient" << difficultyCoefficient;
-		return PokerSell(SellType::YAO_BU_QI, std::vector<Poker>(), 0);
+		return PokerSell(SellType::VOID_SELL, std::vector<Poker>(), 0);
 //		return PlayPokersFuncMap[difficultyCoefficient](*lastPokerSell, robot);
 	}
 
@@ -59,7 +59,6 @@ public:
 private:
 	static std::unordered_map<int, PlayPokersFunc> PlayPokersFuncMap;
 	static std::unordered_map<int, ChooseLandlordFunc> ChooseLandlordFuncMap;
-
 };
 
 

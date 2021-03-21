@@ -43,6 +43,7 @@ enum class ClientEventCode {
 	CODE_PVE_DIFFICULTY_NOT_SUPPORT,                // ("人机难度不支持"),
 	CODE_GAME_WATCH,                                // ("观战"),
 	CODE_GAME_WATCH_SUCCESSFUL,                     // ("观战成功");
+	CODE_GAME_ID_SET                                // ("设置ID")
 };
 
 const std::vector<std::string> clientEventCodeToString = { "设置昵称", "客户端退出", "客户端被踢出",

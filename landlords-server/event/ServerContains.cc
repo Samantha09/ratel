@@ -10,9 +10,9 @@
 
 int ServerContains::port = 1024;
 
-std::unordered_map<int, ClientSide*> ServerContains::CLIENT_SIDE_MAP =
-					std::unordered_map<int, ClientSide*>();
-std::unordered_map<int, Room*> ServerContains::ROOM_MAP = std::unordered_map<int, Room*>();
+std::unordered_map<int, std::shared_ptr<ClientSide> > ServerContains::CLIENT_SIDE_MAP =
+					std::unordered_map<int, std::shared_ptr<ClientSide> >();
+std::unordered_map<int, std::shared_ptr<Room> > ServerContains::ROOM_MAP = std::unordered_map<int, std::shared_ptr<Room> >();
 std::atomic<int> ServerContains::CLIENT_ATOMIC_ID(0);
 std::atomic<int> ServerContains::SERVER_ATOMIC_ID(0);
 

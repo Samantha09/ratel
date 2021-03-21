@@ -27,7 +27,7 @@ public:
 	/*
 	 * the list of clientSide
 	 */
-	static std::unordered_map<int, ClientSide*> CLIENT_SIDE_MAP;
+	static std::unordered_map<int,  std::shared_ptr<ClientSide> > CLIENT_SIDE_MAP;
 	static std::atomic<int> CLIENT_ATOMIC_ID;
 	static std::atomic<int> SERVER_ATOMIC_ID;
 
@@ -41,7 +41,17 @@ public:
 		return ++SERVER_ATOMIC_ID;
 	}
 
-	static Room *getRoom(int id)
+	static std::shared_ptr<ClientSide> getClient(int id)
+	{
+		auto clientIter = CLIENT_SIDE_MAP.find(id);
+		if (clientIter != CLIENT_SIDE_MAP.end())
+		{
+			return clientIter->second;
+		}
+		return nullptr;
+	}
+
+	static std::shared_ptr<Room> getRoom(int id)
 	{
 		LOG_DEBUG << "getRoom";
 		auto roomIter = ROOM_MAP.find(id);
@@ -51,10 +61,15 @@ public:
 			return roomIter->second;
 		}
 		LOG_DEBUG << "roomIter == ROOM_MAP.end()";
-		return roomIter->second;
+		return nullptr;
 	}
 
-	static void addRoom(Room *room)
+	static std::unordered_map<int, std::shared_ptr<Room> > getRoomMap()
+	{
+		return ROOM_MAP;
+	}
+
+	static void addRoom(std::shared_ptr<Room> room)
 	{
 		ROOM_MAP.insert(std::make_pair(room->getId(), room));
 	}
@@ -68,11 +83,13 @@ private:
 	/*
 	 * the map of server side
 	 */
-	static std::unordered_map<int, Room*> ROOM_MAP;
+	static std::unordered_map<int, std::shared_ptr<Room> > ROOM_MAP;
 
 public:
 	ServerContains(){};
-	virtual ~ServerContains(){};
+	virtual ~ServerContains()
+	{
+	};
 };
 
 //ServerContains& serverContains = muduo::Singleton<ServerContains>::instance();

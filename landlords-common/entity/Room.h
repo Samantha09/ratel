@@ -16,11 +16,13 @@
 
 #include <string>
 #include <map>
+#include <bits/types.h>
+#include <muduo/base/Timestamp.h>
 
 class Room {
 public:
-	typedef std::map<int, ClientSide*> ClientSideMap;
-	typedef std::vector<ClientSide*> ClientSideVec;
+	typedef std::map<int, std::weak_ptr<ClientSide> > ClientSideMap;
+	typedef std::vector<std::weak_ptr<ClientSide> > ClientSideVec;
 
 	long getCreateTime()
 	{
@@ -28,10 +30,16 @@ public:
 		return createTime_;
 	}
 
-	void setCreateTime(long createTime)
+	void setCreateTime(uint64_t createTime)
 	{
 		muduo::MutexLockGuard lock(mutex_);
 		createTime_ = createTime;
+	}
+
+	void setLastFlushTime(uint64_t time)
+	{
+		muduo::MutexLockGuard lock(mutex_);
+		lastFlushTime_ = time;
 	}
 
 	int getDifficultyCoefficient()
@@ -234,13 +242,11 @@ private:
 	int currentSellClient_ = -1;
 	int difficultyCoefficient_;
 
-	long lastFlushTime_ = 0;
+	uint64_t lastFlushTime_ = 0;
 
-	long createTime_ = 0;
+	uint64_t createTime_ = 0;
 
 	int firstSellClient_ = 0;
-
-//	int landlordId = -1;
 
 	std::vector<ClientSide> watcherList_ = std::vector<ClientSide>();
 
