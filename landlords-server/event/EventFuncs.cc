@@ -689,6 +689,8 @@ void ServerEventListener_CODE_GAME_LANDLORD_ELECT(ProtobufCodec *codec, const mu
 
 		PokerHelper::sortPoker(clientSide->getPokers());
 
+		clientSide->setType(ClientType::LANDLORD);
+
 		int currentClientId = clientSide->getId();
 		room->setLandlordId(currentClientId);
 		room->setLastSellClient(currentClientId);
@@ -835,9 +837,9 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec, con
 		if (c.expired())
 			throw std::runtime_error("ClientSide 不存在");
 		std::shared_ptr<ClientSide> client = c.lock();
+		std::string p;
 		if (clientSide->getPre() != nullptr)
-			std::string p = clientSide->getPre()->getId() == client->getId() ? "up" : "down";
-		std::string p = "";
+			p = clientSide->getPre()->getId() == client->getId() ? "up" : "down";
 		MapHelper result;
 
 		ClientInfo info(client->getId(),
@@ -849,6 +851,8 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec, con
 		if (client->getId() != clientSide->getId())
 			clientInfos.push_back(info);
 	}
+
+	LOG_DEBUG << "clientInfos 的大小： " << clientInfos.size();
 
 	MapHelper result;
 	result.put("pokers", clientSide->getPokers())

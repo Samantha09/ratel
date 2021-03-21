@@ -468,8 +468,8 @@ void ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec,
 			std::string str_type = int(info.type) ? "PEASANT" : "LANDLORD";
 			if (position == choose[index])
 			{
-				printf("%s\t%d [%s]\n", info.clientNickname.c_str(), info.surplus, str_type.c_str());
-				fflush(stdout);
+				std::cout << info.clientNickname.c_str() << "\t" << info.surplus << "\t" << str_type.c_str()
+						  << std::endl;
 			}
 		}
 	}
@@ -488,7 +488,7 @@ void ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec,
 	else
 	{
 		assert(data.get("sellClinetNickname", "") != "");
-		std::cout << "It's " <<  data.get("sellClinetNickname", "") << " 's turn. Please wait for him to play his cards.";
+		std::cout << "It's " <<  data.get("sellClinetNickname", "") << " 's turn. Please wait for him to play his cards." << std::endl;
 	}
 }
 

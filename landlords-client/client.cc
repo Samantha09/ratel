@@ -120,7 +120,7 @@ class QueryClient : noncopyable
 
 int main(int argc, char* argv[])
 {
-	muduo::Logger::setLogLevel(muduo::Logger::DEBUG);
+//	muduo::Logger::setLogLevel(muduo::Logger::DEBUG);
   LOG_INFO << "pid = " << getpid();
   if (argc > 2)
   {
