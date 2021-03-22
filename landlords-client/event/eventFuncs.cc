@@ -456,12 +456,23 @@ void ClientEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec,
 	int sellClientId = data.get("sellClientId", 0);
 	assert(sellClientId != 0);
 	std::vector<ClientInfo> clientInfos = data.get("clientInfos", std::vector<ClientInfo>());
-
 	std::string choose[2]{ "up", "down" };
 	std::cout << "everyone's current situations: " << std::endl;
 
+
+
 	for (int index = 0; index < 2; ++index)
 	{
+
+		if (index == 1)
+		{
+			ClientInfo cinfo = clientInfos.at(clientInfos.size() - 1);
+			std::string ctype = int(cinfo.type) ? "PEASANT" : "LANDLORD";
+			std::cout << cinfo.clientNickname << "\t"
+					  << cinfo.surplus << "\t"
+					  << ctype << std::endl;
+		}
+
 		for (ClientInfo info: clientInfos)
 		{
 			std::string position = info.position;

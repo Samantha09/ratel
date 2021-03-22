@@ -137,7 +137,8 @@ void ServerEventListener_CODE_ROOM_JOIN(ProtobufCodec *codec, const muduo::net::
 				room->setStatus(RoomStatus::WAIT);
 
 				MapHelper result;
-				result.put("clientNickname", clientSide->getNickname())
+				result.put("joinClientId", clientSide->getId())
+					  .put("clientNickname", clientSide->getNickname())
 					  .put("roomId", room->getId())
 					  .put("roomOwner", room->getRoomOwner())
 					  .put("roomClientCount", room->getClientSideList().size());
@@ -149,7 +150,7 @@ void ServerEventListener_CODE_ROOM_JOIN(ProtobufCodec *codec, const muduo::net::
 					pushDataToClient(codec,
 									 client.lock()->getConn(),
 									 ClientEventCode::CODE_ROOM_JOIN_SUCCESS,
-									 MapHelper(result).put("joinClientId", client.lock()->getId()));
+									 result);
 				}
 			}
 		}
@@ -851,6 +852,14 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec, con
 		if (client->getId() != clientSide->getId())
 			clientInfos.push_back(info);
 	}
+
+	ClientInfo cinfo(clientSide->getId(),
+					 clientSide->getNickname(),
+					 clientSide->getType(),
+					 clientSide->getPokers().size(),
+					 "");
+
+	clientInfos.push_back(cinfo);
 
 	LOG_DEBUG << "clientInfos 的大小： " << clientInfos.size();
 
