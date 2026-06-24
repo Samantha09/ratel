@@ -1,0 +1,13 @@
+# Build artifacts (root Makefile)
+*.o
+*.a
+server
+client
+gateway
+
+# IDE / editor
+.idea/
+
+# Crash dumps
+core
+core.*
