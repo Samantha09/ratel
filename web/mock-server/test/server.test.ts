@@ -9,7 +9,10 @@ beforeAll(() => {
 });
 
 let server: WebSocketServer;
-afterEach(() => server?.close());
+afterEach(async () => {
+  if (!server) return;
+  await new Promise<void>((resolve) => server!.close(() => resolve()));
+});
 
 /** Wait for the ephemeral-port server to be listening, then return its port. */
 function listenPort(srv: WebSocketServer): Promise<number> {
@@ -43,14 +46,19 @@ function recv(ws: WebSocket, predicate: (e: any) => boolean, timeoutMs = 2000): 
     if (predicate(e)) { buf.splice(i, 1); return Promise.resolve(e); }
   }
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('timeout waiting for event')), timeoutMs);
-    ws.on('message', (raw: Buffer) => {
+    const timer = setTimeout(() => {
+      ws.off('message', listener);
+      reject(new Error('timeout waiting for event'));
+    }, timeoutMs);
+    const listener = (raw: Buffer) => {
       const e = JSON.parse(raw.toString());
       if (predicate(e)) {
         clearTimeout(timer);
+        ws.off('message', listener);
         resolve(e);
       }
-    });
+    };
+    ws.on('message', listener);
   });
 }
 

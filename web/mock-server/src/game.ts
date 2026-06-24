@@ -120,6 +120,7 @@ export class Game {
 
   onHumanLandlordElect(grab: boolean): void {
     if (this.phase !== 'bidding') return;
+    if (this.biddingOrder[this.biddingIndex] !== this.humanSeat) return;
     const seatId = this.biddingOrder[this.biddingIndex];
     if (grab) {
       this.confirmLandlord(seatId);
@@ -173,6 +174,8 @@ export class Game {
   }
 
   onHumanPlay(cards: Card[]): void {
+    // Note: this mock only emits 'order'/'invalid'/'less' here (and 'cantPass' in
+    // onHumanPass). The 'mismatch' playError reason is reserved for the real C++ gateway.
     if (this.phase !== 'playing' || this.turn !== this.humanSeat) {
       this.emit({ event: 'playError', data: { reason: 'order' } });
       return;
