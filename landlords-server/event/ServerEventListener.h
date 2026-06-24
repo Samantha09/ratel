@@ -12,9 +12,7 @@
 #include <algorithm>
 #include "enums/ClientEventCode.h"
 #include "enums/ServerEventCode.h"
-#include "protobuf/codec.h"
-#include "protobuf/dispatcher.h"
-#include "protobuf/query.pb.h"
+#include "web/WsCodec.h"
 #include "helper/SerializeHelper.h"
 
 #include "muduo/base/Logging.h"
@@ -22,14 +20,14 @@
 class ServerEventListener {
 public:
 
-	typedef void(*SolveFunc)( ProtobufCodec *codec,
-			 	 	 	 	  const muduo::net::TcpConnectionPtr &conn,
-							  const MapHelper &mapHelper);
+	typedef void(*SolveFunc)( WsCodec *codec,
+				 	 	 	 	  const muduo::net::TcpConnectionPtr &conn,
+								  const MapHelper &mapHelper);
 
 	ServerEventListener();
 	// operator ()
 	void operator() (const muduo::net::TcpConnectionPtr &conn,
-			 ServerEventCode code, const MapHelper &mapHelper)
+				 ServerEventCode code, const MapHelper &mapHelper)
 	{
 		LOG_INFO << "ServerEventListener";
 	    auto answerFuncIter = LISTENER_MAP.find(code);
@@ -44,30 +42,16 @@ public:
 	}
 	virtual ~ServerEventListener(){}
 
-	void onUnknownMessage(const muduo::net::TcpConnectionPtr& conn,
-	                      const MessagePtr& message,
-	                      muduo::Timestamp)
-	{
-	  LOG_INFO << "onUnknownMessage: " << message->GetTypeName();
-	  conn->shutdown();
-	}
-
 	void pushToClient(const muduo::net::TcpConnectionPtr &conn,
-			 ClientEventCode code, const char *data )
+				 ClientEventCode code, const char * /*data*/ )
 	{
 		LOG_INFO << "pushToClient";
-		muduo::Answer answer;
-		answer.set_id(int(code));
-		answer.set_answerer("san");
-		answer.set_questioner("san");
-		answer.add_solution(data);
-		codec_.send(conn, answer);
+		codec_.sendEvent(conn, code, MapHelper());
 	}
 
 public:
 	std::unordered_map<ServerEventCode, SolveFunc> LISTENER_MAP;
-	ProtobufCodec codec_;
-	ProtobufDispatcher dispatcher_;
+	WsCodec codec_;
 };
 
 

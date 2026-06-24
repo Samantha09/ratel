@@ -13,16 +13,17 @@
 #include "entity/ClientSide.h"
 #include "enums/ServerEventCode.h"
 #include "RobotEventFuns.h"
+#include "web/WsCodec.h"
 #include "muduo/base/Logging.h"
 
 class RobotEventListener
 {
 public:
 	typedef void(*RobotEventFunc)(
-				 ClientSide *robot,
-			 	 ProtobufCodec *codec,
-				 const muduo::net::TcpConnectionPtr &conn,
-				 const MapHelper &mapHelper);
+					 ClientSide *robot,
+				 	 WsCodec *codec,
+					 const muduo::net::TcpConnectionPtr &conn,
+					 const MapHelper &mapHelper);
 
 	RobotEventListener(){}
 	~RobotEventListener(){}
@@ -35,7 +36,7 @@ public:
 
 	static std::unordered_map<ClientEventCode, RobotEventFunc> LISTENER_MAP;
 
-	static void get(ProtobufCodec *codec,
+	static void get(WsCodec *codec,
 					const muduo::net::TcpConnectionPtr &conn,
 					ClientEventCode code,
 					ClientSide *robot,

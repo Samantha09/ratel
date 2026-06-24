@@ -11,15 +11,16 @@
 #include "entity/ClientSide.h"
 #include "enums/ServerEventCode.h"
 #include "helper/SerializeHelper.h"
+#include "web/WsCodec.h"
 
 void RobotEventListener_CODE_GAME_LANDLORD_ELECT(ClientSide *robot,
-												 ProtobufCodec *codec,
-												 const muduo::net::TcpConnectionPtr &conn,
-												 const MapHelper &data);
-
-void RobotEventListener_CODE_GAME_POKER_PLAY(ClientSide *robot,
-		 	 	 	 	 	 	 	 	 	 ProtobufCodec *codec,
+											 WsCodec *codec,
 											 const muduo::net::TcpConnectionPtr &conn,
 											 const MapHelper &data);
+
+void RobotEventListener_CODE_GAME_POKER_PLAY(ClientSide *robot,
+			 	 	 	 	 	 	 	 	 	 	 WsCodec *codec,
+												 const muduo::net::TcpConnectionPtr &conn,
+												 const MapHelper &data);
 
 #endif /* LANDLORDS_SERVER_ROBOT_ROBOTEVENTFUNS_H_ */

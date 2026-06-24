@@ -29,7 +29,33 @@ $(BINARIES): libravel.a
 	g++ $(CXXFLAGS) -o $@ $(filter %.cc,$^) $(LDFLAGS)
 
 clean:
-	rm -f $(BINARIES) *.o *.a core
+	rm -f $(BINARIES) *.o *.a core gateway
 
 server: landlords-server/server.cc
 client: landlords-client/client.cc
+
+# Gateway target (WebSocket + JSON, no protobuf)
+GATEWAY_SRC = landlords-server/server.cc \
+              landlords-server/event/EventFuncs.cc \
+              landlords-server/event/ServerEventListener.cc \
+              landlords-server/event/ServerContains.cc \
+              landlords-server/robot/RobotEventListener.cc \
+              landlords-server/robot/RobotEventFuncs.cc \
+              landlords-common/helper/PokerHelper.cc \
+              landlords-common/entity/PokerSell.cc \
+              landlords-common/robot/RobotDecisionMakers.cc
+
+GATEWAY_CXXFLAGS = -g -std=c++14 -I lib/muduo/include -I landlords-common -I lib/json -pthread -L lib/muduo/lib
+GATEWAY_LDFLAGS = -L lib/muduo/lib -lmuduo_net -lmuduo_base -lpthread -lz
+
+gateway: $(GATEWAY_SRC)
+	g++ $(GATEWAY_CXXFLAGS) -o gateway $(GATEWAY_SRC) $(GATEWAY_LDFLAGS)
+
+# Self-test targets
+test: sha1_base64_test websocket_test jsonmap_test
+
+sha1_base64_test: ; g++ $(GATEWAY_CXXFLAGS) landlords-common/web/sha1_base64_test.cc -o /tmp/$@ && /tmp/$@
+websocket_test:   ; g++ $(GATEWAY_CXXFLAGS) landlords-common/web/websocket_test.cc   -o /tmp/$@ && /tmp/$@
+jsonmap_test:     ; g++ $(GATEWAY_CXXFLAGS) landlords-common/web/jsonmap_test.cc       -o /tmp/$@ && /tmp/$@
+
+.PHONY: all clean test gateway sha1_base64_test websocket_test jsonmap_test

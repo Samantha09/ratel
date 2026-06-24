@@ -17,7 +17,7 @@
 std::vector<PokerLevel> parsePokerToLevel(const std::vector<Poker> &pokers);
 
 void RobotEventListener_CODE_GAME_LANDLORD_ELECT(ClientSide *robot,
-												 ProtobufCodec *codec,
+												 WsCodec *codec,
 												 const muduo::net::TcpConnectionPtr &conn,
 												 const MapHelper &mapHelper)
 {
@@ -35,7 +35,7 @@ void RobotEventListener_CODE_GAME_LANDLORD_ELECT(ClientSide *robot,
 }
 
 void RobotEventListener_CODE_GAME_POKER_PLAY(ClientSide *robot,
-											 ProtobufCodec *codec,
+											 WsCodec *codec,
 											 const muduo::net::TcpConnectionPtr &conn,
 											 const MapHelper &mapHelper)
 {

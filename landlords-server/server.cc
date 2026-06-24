@@ -1,6 +1,6 @@
-#include "protobuf/codec.h"
-#include "protobuf/dispatcher.h"
-#include "protobuf/query.pb.h"
+#include "web/WsCodec.h"
+#include "web/JsonMapHelper.h"
+#include "json.hpp"
 #include "entity/Poker.h"
 #include "helper/PokerHelper.h"
 #include "enums/ClientEventCode.h"
@@ -23,27 +23,17 @@
 using namespace muduo;
 using namespace muduo::net;
 
-typedef std::shared_ptr<muduo::Query> QueryPtr;
-typedef std::shared_ptr<muduo::Answer> AnswerPtr;
-
 class QueryServer : noncopyable
 {
  public:
   QueryServer(EventLoop* loop,
               const InetAddress& listenAddr)
   : server_(loop, listenAddr, "QueryServer"),
-    dispatcher_(std::bind(&QueryServer::onUnknownMessage, this, _1, _2, _3)),
-    codec_(std::bind(&ProtobufDispatcher::onProtobufMessage, &dispatcher_, _1, _2, _3))
+    codec_(std::bind(&QueryServer::onWsMessage, this, _1, _2)),
+    serverEventListener()
   {
-	init();
-    dispatcher_.registerMessageCallback<muduo::Query>(
-        std::bind(&QueryServer::onQuery, this, _1, _2, _3));
-    dispatcher_.registerMessageCallback<muduo::Answer>(
-        std::bind(&QueryServer::onAnswer, this, _1, _2, _3));
-    server_.setConnectionCallback(
-        std::bind(&QueryServer::onConnection, this, _1));
-    server_.setMessageCallback(
-        std::bind(&ProtobufCodec::onMessage, &codec_, _1, _2, _3));
+	server_.setConnectionCallback(std::bind(&QueryServer::onConnection, this, _1));
+	server_.setMessageCallback(std::bind(&WsCodec::onMessage, &codec_, _1, _2, _3));
   }
 
   void start()
@@ -73,59 +63,44 @@ class QueryServer : noncopyable
         << conn->localAddress().toIpPort() << " is "
         << (conn->connected() ? "UP" : "DOWN");
 
-    ClientSide *clientSide(new ClientSide(ServerContains::getClientId(), ClientStatus::TO_CHOOSE, conn));
-    clientSide->setRole(ClientRole::PLAYER);
-    clientSide->setConn(conn);
+    if (conn->connected())
+    {
+        ClientSide *clientSide(new ClientSide(ServerContains::getClientId(), ClientStatus::TO_CHOOSE, conn));
+        clientSide->setRole(ClientRole::PLAYER);
+        clientSide->setConn(conn);
 
-    ServerContains::CLIENT_SIDE_MAP.insert(std::make_pair(clientSide->getId(), clientSide));
+        ServerContains::CLIENT_SIDE_MAP.insert(std::make_pair(clientSide->getId(), clientSide));
 
-    pushToClient(conn, ClientEventCode::CODE_GAME_ID_SET, MapHelper().put("clientId", clientSide->getId()));
-//    pushToClient(conn, ClientEventCode::CODE_CLIENT_NICKNAME_SET, MapHelper().put("clientId", clientSide->getId()));
+        pushToClient(conn, ClientEventCode::CODE_GAME_ID_SET, MapHelper().put("clientId", clientSide->getId()));
+    }
+    else
+    {
+        codec_.discard(conn);
+    }
   }
 
   void pushToClient(const TcpConnectionPtr& conn, ClientEventCode code, const MapHelper &data)
   {
-	  Answer answer;
-	  std::string result = SerializeHelper::SerializeToString<MapHelper>(data);
-	  answer.set_answerer("san");
-	  answer.set_questioner("san");
-	  answer.set_id(int(code));
-	  answer.add_solution(result);
-	  codec_.send(conn, answer);
+	  codec_.sendEvent(conn, code, data);
   }
 
-  void onUnknownMessage(const TcpConnectionPtr& conn,
-                        const MessagePtr& message,
-                        Timestamp)
+  void onWsMessage(const TcpConnectionPtr& conn, const std::string& text)
   {
-    LOG_INFO << "onUnknownMessage: " << message->GetTypeName();
-    conn->shutdown();
-  }
-
-  void onQuery(const muduo::net::TcpConnectionPtr& conn,
-               const QueryPtr& message,
-               muduo::Timestamp)
-  {
-	  // FIXME 在这里不需要解析
-	    LOG_INFO << "onQuery:\n" << message->GetTypeName() << message->DebugString();
-	    LOG_INFO << "onQuery:\n";
-		// FIXME： 我也不知道为什么。。。
-	    MapHelper result = SerializeHelper::parseStringToData<MapHelper>(message->question(0));
-	    serverEventListener(conn, ServerEventCode(message->id()), result);
-  }
-
-  void onAnswer(const muduo::net::TcpConnectionPtr& conn,
-                const AnswerPtr& message,
-                muduo::Timestamp)
-  {
-    LOG_INFO << "onAnswer: " << message->GetTypeName();
-    conn->shutdown();
+      nlohmann::json j;
+      try {
+          j = nlohmann::json::parse(text);
+      } catch (...) {
+          LOG_WARN << "bad json frame";
+          return;
+      }
+      ServerEventCode code = event_name_to_server_code(j.value("event", ""));
+      MapHelper data = from_event_json(j);
+      serverEventListener(conn, code, data);
   }
 
  private:
   TcpServer server_;
-  ProtobufDispatcher dispatcher_;
-  ProtobufCodec codec_;
+  WsCodec codec_;
   std::vector<Poker> pokers_;
   ServerEventListener serverEventListener;
 };

@@ -8,7 +8,7 @@
 #include "EventFuncs.h"
 #include "robot/RobotDecisionMakers.h"
 #include "ServerContains.h"
-#include "protobuf/query.pb.h"
+#include "web/JsonMapHelper.h"
 #include "enums/ClientEventCode.h"
 #include "helper/PokerHelper.h"
 #include "muduo/base/Logging.h"
@@ -16,27 +16,21 @@
 #include "../robot/RobotEventListener.h"
 #include <thread>
 
-void robot_elect_landlord(ProtobufCodec *codec,
+void robot_elect_landlord(WsCodec *codec,
 							const muduo::net::TcpConnectionPtr &conn,
 							ClientEventCode code,
 							ClientSide *robot,
 							const MapHelper &mapHelper);
 
-void pushDataToClient(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
-		ClientEventCode code, const MapHelper &mapHelper)
+void pushDataToClient(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+			ClientEventCode code, const MapHelper &mapHelper)
 {
-//	  LOG_DEBUG << "pushDataToClient " << int(code);
-	  LOG_DEBUG << "客户端ID: " << mapHelper.get("clientId", 0) << " " << clientEventCodeToString[int(code)];
-	  std::string result = SerializeHelper::SerializeToString<MapHelper>(mapHelper);
-	  muduo::Answer answer;
-	  answer.set_answerer("san");
-	  answer.set_questioner("san");
-	  answer.set_id(int(code));
-	  answer.add_solution(result);
-	  codec->send(conn, answer);
+	//	  LOG_DEBUG << "pushDataToClient " << int(code);
+		  LOG_DEBUG << "客户端ID: " << mapHelper.get("clientId", 0) << " " << clientEventCodeToString[int(code)];
+		  codec->sendEvent(conn, code, mapHelper);
 }
 
-void ServerEventListener_CODE_ROOM_CREATE(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_ROOM_CREATE(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 										  const MapHelper &data)
 {
 	int clientId = data.get("clientId", 0);
@@ -61,7 +55,7 @@ void ServerEventListener_CODE_ROOM_CREATE(ProtobufCodec *codec, const muduo::net
 					 MapHelper().put("roomId", room->getId()));
 }
 
-void ServerEventListener_CODE_GET_ROOMS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_GET_ROOMS(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 										const MapHelper &data)
 {
 	MapHelper result;
@@ -84,7 +78,7 @@ void ServerEventListener_CODE_GET_ROOMS(ProtobufCodec *codec, const muduo::net::
 }
 
 
-void ServerEventListener_CODE_ROOM_JOIN(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_ROOM_JOIN(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 										const MapHelper &data)
 {
 	int clientId = data.get("clientId", 0);
@@ -161,14 +155,14 @@ void ServerEventListener_CODE_ROOM_JOIN(ProtobufCodec *codec, const muduo::net::
 }
 
 
-void ServerEventListener_CODE_CLIENT_EXIT(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_CLIENT_EXIT(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 										  const MapHelper &data)
 {
 	LOG_DEBUG << "ServerEventListener_CODididE_CLIENT_EXIT";
 	conn->shutdown();
 }
 
-void ServerEventListener_CODE_CLIENT_NICKNAME_SET(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_CLIENT_NICKNAME_SET(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 												  const MapHelper &data)
 {
 	LOG_INFO << "ServerEventListener_CODE_CLIENT_NICKNAME_SET \n";
@@ -196,7 +190,7 @@ void ServerEventListener_CODE_CLIENT_NICKNAME_SET(ProtobufCodec *codec, const mu
 	}
 }
 
-void ServerEventListener_CODE_GAME_POKER_PLAY_PASS(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_GAME_POKER_PLAY_PASS(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 												   const MapHelper &data)
 {
 	LOG_DEBUG << "ServerEventListener_CODE_GAME_POKER_PLAY_PASS";
@@ -267,7 +261,7 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_PASS(ProtobufCodec *codec, const m
 	}
 }
 
-void ServerEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_GAME_POKER_PLAY(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 											  const MapHelper &data)
 {
 	int clientId = data.get("clientId", 0);
@@ -469,7 +463,7 @@ void ServerEventListener_CODE_GAME_POKER_PLAY(ProtobufCodec *codec, const muduo:
 }
 
 
-void ServerEventListener_CODE_GAME_STARTING(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_GAME_STARTING(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 											const MapHelper &data)
 {
 	int clientId = data.get("clientId", 0);
@@ -576,7 +570,7 @@ void ServerEventListener_CODE_GAME_STARTING(ProtobufCodec *codec, const muduo::n
 	LOG_WARN << "notifyWatcherGameStart(room);";
 }
 
-void ServerEventListener_CODE_ROOM_CREATE_PVE(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_ROOM_CREATE_PVE(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 											  const MapHelper &data)
 {
 	LOG_INFO << "ServerEventListener_CODE_ROOM_CREATE_PVE";
@@ -659,7 +653,7 @@ void ServerEventListener_CODE_ROOM_CREATE_PVE(ProtobufCodec *codec, const muduo:
 	}
 }
 
-void ServerEventListener_CODE_GAME_LANDLORD_ELECT(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_GAME_LANDLORD_ELECT(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 												  const MapHelper &data)
 {
 	// 谁先抢，谁就是地主
@@ -811,7 +805,7 @@ void ServerEventListener_CODE_GAME_LANDLORD_ELECT(ProtobufCodec *codec, const mu
 //		LOG_WARN << "ChannelUtils.pushToClient(clientSide.getChannel(), ClientEventCode.CODE_ROOM_PLAY_FAIL_BY_INEXIST, null)";
 //	}
 
-void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec, const muduo::net::TcpConnectionPtr &conn,
+void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
 													   const MapHelper &data)
 {
 	LOG_INFO << "我是服务端，我在做出牌前的准备！";
@@ -876,7 +870,7 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(ProtobufCodec *codec, con
 					 result);
 }
 
-void robot_elect_landlord(ProtobufCodec *codec,
+void robot_elect_landlord(WsCodec *codec,
 							const muduo::net::TcpConnectionPtr &conn,
 							ClientEventCode code,
 							ClientSide *robot,
