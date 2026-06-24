@@ -1,7 +1,32 @@
+import { useGame } from './hooks/useGame';
+import { LobbyView } from './views/LobbyView';
+import { GameView } from './views/GameView';
+
 export default function App() {
+  const { state, actions } = useGame();
+
+  if (state.phase === 'connecting' || state.phase === 'lobby') {
+    return (
+      <LobbyView
+        connecting={state.phase === 'connecting'}
+        onCreate={(nickname) => {
+          actions.setNickname(nickname);
+          actions.createRoom();
+        }}
+      />
+    );
+  }
+
   return (
-    <main className="flex h-full items-center justify-center">
-      <h1 className="font-display display-tracking text-4xl font-semibold text-ink">ratel</h1>
-    </main>
+    <GameView
+      state={state}
+      actions={{
+        selectCard: actions.selectCard,
+        play: () => actions.play(state.selected.map((i) => state.hand[i]).filter(Boolean)),
+        pass: actions.pass,
+        grab: actions.grab,
+        reset: actions.reset,
+      }}
+    />
   );
 }
