@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { reducer, initialState } from './gameReducer';
+import { gameReducer, initialState, GameState } from './gameReducer';
 import { ServerEvent, Card } from '../types';
 
 const c = (level: number, type = 1): Card => ({ type: type as Card['type'], level });
 
-function apply(events: ServerEvent[]) {
-  return events.reduce((state, event) => reducer(state, { type: 'server', event }), { ...initialState, clientId: 0 });
+function apply(events: ServerEvent[]): GameState {
+  const start: GameState = { ...initialState, clientId: 0 };
+  return events.reduce((state, event) => gameReducer(state, { type: 'server', event }), start);
 }
 
-describe('reducer', () => {
+describe('gameReducer', () => {
   it('connected + idSet sets connection state', () => {
     const s = apply([{ event: 'connected', data: {} }, { event: 'idSet', data: { clientId: 0 } }]);
     expect(s.connected).toBe(true);
@@ -44,9 +45,9 @@ describe('reducer', () => {
 
   it('playRedirect by me removes those cards from my hand and clears selection', () => {
     let s = apply([{ event: 'showPokers', data: { pokers: [c(0), c(1), c(2)] } }]);
-    s = reducer(s, { type: 'select', index: 0 });
+    s = gameReducer(s, { type: 'select', index: 0 });
     expect(s.selected).toEqual([0]);
-    s = reducer(s, {
+    s = gameReducer(s, {
       type: 'server',
       event: { event: 'playRedirect', data: { sellClient: 0, sellNickname: 'san', sellPokers: [c(0)], sellType: 3, nextClient: 1 } },
     });
@@ -58,7 +59,7 @@ describe('reducer', () => {
   it('playRedirect by an opponent decrements their cardsLeft', () => {
     let s = apply([{ event: 'landlordConfirm', data: { landlord: 1, nickname: 'Bot' } }]);
     const before = s.seats[1].cardsLeft; // 20 (landlord)
-    s = reducer(s, {
+    s = gameReducer(s, {
       type: 'server',
       event: { event: 'playRedirect', data: { sellClient: 1, sellNickname: 'Bot', sellPokers: [c(0), c(1)], sellType: 3, nextClient: 2 } },
     });
@@ -67,8 +68,8 @@ describe('reducer', () => {
 
   it('playError sets error and keeps selection', () => {
     let s = apply([{ event: 'showPokers', data: { pokers: [c(0)] } }]);
-    s = reducer(s, { type: 'select', index: 0 });
-    s = reducer(s, { type: 'server', event: { event: 'playError', data: { reason: 'less' } } });
+    s = gameReducer(s, { type: 'select', index: 0 });
+    s = gameReducer(s, { type: 'server', event: { event: 'playError', data: { reason: 'less' } } });
     expect(s.error).toBe('less');
     expect(s.selected).toEqual([0]);
   });
@@ -81,9 +82,9 @@ describe('reducer', () => {
 
   it('select toggles an index', () => {
     let s = apply([{ event: 'showPokers', data: { pokers: [c(0), c(1)] } }]);
-    s = reducer(s, { type: 'select', index: 1 });
+    s = gameReducer(s, { type: 'select', index: 1 });
     expect(s.selected).toEqual([1]);
-    s = reducer(s, { type: 'select', index: 1 });
+    s = gameReducer(s, { type: 'select', index: 1 });
     expect(s.selected).toEqual([]);
   });
 });

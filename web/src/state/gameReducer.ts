@@ -74,7 +74,7 @@ function removeCards(hand: Card[], toRemove: Card[]): Card[] {
   });
 }
 
-export function reducer(state: GameState, action: Action): GameState {
+export function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'select':
       return { ...state, selected: toggle(state.selected, action.index) };
