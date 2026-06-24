@@ -29,7 +29,8 @@ class QueryServer : noncopyable
   QueryServer(EventLoop* loop,
               const InetAddress& listenAddr)
   : server_(loop, listenAddr, "QueryServer"),
-    codec_(std::bind(&QueryServer::onWsMessage, this, _1, _2)),
+    codec_(std::bind(&QueryServer::onWsMessage, this, _1, _2),
+           std::bind(&QueryServer::onHandshake, this, _1)),
     serverEventListener()
   {
 	server_.setConnectionCallback(std::bind(&QueryServer::onConnection, this, _1));
@@ -65,18 +66,27 @@ class QueryServer : noncopyable
 
     if (conn->connected())
     {
-        ClientSide *clientSide(new ClientSide(ServerContains::getClientId(), ClientStatus::TO_CHOOSE, conn));
-        clientSide->setRole(ClientRole::PLAYER);
-        clientSide->setConn(conn);
-
-        ServerContains::CLIENT_SIDE_MAP.insert(std::make_pair(clientSide->getId(), clientSide));
-
-        pushToClient(conn, ClientEventCode::CODE_GAME_ID_SET, MapHelper().put("clientId", clientSide->getId()));
+        // Don't send anything here - wait for handshake to complete.
+        // ClientSide will be created in onHandshake callback.
     }
     else
     {
         codec_.discard(conn);
     }
+  }
+
+  void onHandshake(const TcpConnectionPtr& conn)
+  {
+      // Handshake complete, create ClientSide and send idSet
+      ClientSide *clientSide(new ClientSide(ServerContains::getClientId(), ClientStatus::TO_CHOOSE, conn));
+      clientSide->setRole(ClientRole::PLAYER);
+      clientSide->setConn(conn);
+
+      ServerContains::CLIENT_SIDE_MAP.insert(std::make_pair(clientSide->getId(), clientSide));
+
+      LOG_INFO << "Created ClientSide with ID: " << clientSide->getId() << " for connection";
+
+      pushToClient(conn, ClientEventCode::CODE_GAME_ID_SET, MapHelper().put("clientId", clientSide->getId()));
   }
 
   void pushToClient(const TcpConnectionPtr& conn, ClientEventCode code, const MapHelper &data)
@@ -95,6 +105,25 @@ class QueryServer : noncopyable
       }
       ServerEventCode code = event_name_to_server_code(j.value("event", ""));
       MapHelper data = from_event_json(j);
+
+      // Find the ClientSide for this connection and add clientId to data
+      bool found = false;
+      LOG_DEBUG << "CLIENT_SIDE_MAP size: " << ServerContains::CLIENT_SIDE_MAP.size();
+      for (const auto& entry : ServerContains::CLIENT_SIDE_MAP) {
+          LOG_DEBUG << "Checking ClientSide ID: " << entry.second->getId();
+          if (entry.second->getConn() == conn) {
+              data.put("clientId", entry.second->getId());
+              LOG_INFO << "Found ClientSide for connection: " << entry.second->getId();
+              found = true;
+              break;
+          }
+      }
+
+      if (!found) {
+          LOG_WARN << "No ClientSide found for connection";
+          return;
+      }
+
       serverEventListener(conn, code, data);
   }
 

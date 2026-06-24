@@ -24,8 +24,11 @@ class WsCodec {
   // Called when a complete JSON text frame arrives.
   typedef std::function<void(const TcpConnectionPtr&,
                              const std::string& jsonText)> JsonMessageCallback;
+  // Called when WebSocket handshake completes.
+  typedef std::function<void(const TcpConnectionPtr&)> HandshakeCallback;
 
-  explicit WsCodec(JsonMessageCallback cb) : cb_(std::move(cb)) {}
+  WsCodec(JsonMessageCallback jsonCb, HandshakeCallback hsCb = nullptr)
+      : jsonCb_(std::move(jsonCb)), hsCb_(std::move(hsCb)) {}
 
   // muduo message callback. Accumulates bytes, does handshake once, then
   // parses frames and invokes cb_ with each text frame's payload.
@@ -54,6 +57,8 @@ class WsCodec {
           conn->send(resp);
           st.leftover.erase(0, end + 4);
           st.handshakeDone = true;
+          if (hsCb_) hsCb_(conn);
+          return;  // handshake done, next message will process frames
       }
 
       // Drain complete frames.
@@ -66,7 +71,7 @@ class WsCodec {
           if (opcode == 0x9) {                                  // ping -> pong
               conn->send(ws_build_pong(payload));
           } else if (opcode == 0x1) {                           // text
-              cb_(conn, payload);
+              jsonCb_(conn, payload);
           }
           st.leftover.erase(0, consumed);
       }
@@ -91,7 +96,8 @@ class WsCodec {
       f.append(payload);
       return f;
   }
-  JsonMessageCallback cb_;
+  JsonMessageCallback jsonCb_;
+  HandshakeCallback hsCb_;
   std::unordered_map<const void*, WsConnState> states_;
 };
 #endif

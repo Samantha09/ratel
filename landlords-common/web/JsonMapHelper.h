@@ -21,6 +21,8 @@ inline static json pokers_to_json(const std::vector<Poker>& v) {
 // Egress: server -> frontend, per spec §6.2
 inline json to_event_json(ClientEventCode code, const MapHelper& m) {
     json data = json::object();
+    // Log unmapped events for debugging
+    bool mapped = true;
     switch (code) {
         case ClientEventCode::CODE_GAME_ID_SET:
             data["clientId"] = m.get("clientId", 0);
@@ -87,6 +89,22 @@ inline json to_event_json(ClientEventCode code, const MapHelper& m) {
             data["winnerNickname"] = m.get("winnerNickname", std::string());
             data["winnerType"] = m.get("winnerType", std::string());
             return { {"event", "gameOver"}, {"data", data} };
+        case ClientEventCode::CODE_SHOW_OPTIONS:
+            return { {"event", "showOptions"}, {"data", data} };
+        case ClientEventCode::CODE_CLIENT_CONNECT:
+            return { {"event", "clientConnect"}, {"data", data} };
+        case ClientEventCode::CODE_SHOW_OPTIONS_SETTING:
+            return { {"event", "showOptionsSetting"}, {"data", data} };
+        case ClientEventCode::CODE_SHOW_OPTIONS_PVP:
+            return { {"event", "showOptionsPvp"}, {"data", data} };
+        case ClientEventCode::CODE_SHOW_OPTIONS_PVE:
+            return { {"event", "showOptionsPve"}, {"data", data} };
+        case ClientEventCode::CODE_ROOM_CREATE_SUCCESS:
+            return { {"event", "roomCreateSuccess"}, {"data", data} };
+        case ClientEventCode::CODE_GAME_LANDLORD_CYCLE:
+            return { {"event", "landlordCycle"}, {"data", data} };
+        case ClientEventCode::CODE_PVE_DIFFICULTY_NOT_SUPPORT:
+            return { {"event", "pveDifficultyNotSupport"}, {"data", data} };
         default:
             return { {"event", "unknown"}, {"data", data} };
     }
@@ -101,7 +119,7 @@ inline MapHelper from_event_json(const json& j) {
     if (ev == "setNickname") {
         m.put("nickName", d.value("nickname", std::string()));
     } else if (ev == "createRoomPve") {
-        m.put("choose", std::string("0"));  // difficulty default simple
+        m.put("choose", std::string("1"));  // difficulty: 1 = easy (only supported level)
     } else if (ev == "landlordElect") {
         m.put("is_Y", d.value("grab", false) ? "true" : "false");
     } else if (ev == "play") {
