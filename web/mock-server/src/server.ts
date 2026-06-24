@@ -9,7 +9,7 @@ export interface ServerOpts {
 }
 
 export function startServer(opts: ServerOpts = {}): WebSocketServer {
-  const idleMs = opts.idleMs ?? Number(process.env.IDLE_MS ?? 1200);
+  const idleMs = opts.idleMs ?? Number(process.env.IDLE_MS ?? 24 * 60 * 60 * 1000);
   const wss = new WebSocketServer({ port: opts.port ?? 0, host: opts.host ?? '127.0.0.1' });
 
   wss.on('connection', (ws: WebSocket) => {
