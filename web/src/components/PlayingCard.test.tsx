@@ -5,8 +5,9 @@ import { PlayingCard } from './PlayingCard';
 describe('PlayingCard', () => {
   it('renders rank and suit', () => {
     render(<PlayingCard card={{ type: 4, level: 8 }} />); // ♥ J
-    expect(screen.getByText('J')).toBeInTheDocument();
-    expect(screen.getByText('♥')).toBeInTheDocument();
+    // Rank shows in the corner index; suit appears in the corner and as the center pip.
+    expect(screen.getAllByText('J').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('♥').length).toBeGreaterThan(0);
   });
 
   it('renders the big joker', () => {

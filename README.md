@@ -1,8 +1,21 @@
 # ratel
 
 #### 介绍
-命令行斗地主 C++ 实现
+命令行斗地主 C++ 实现，并提供 WebSocket + JSON 网关与 React 网页前端。
 
+#### Web 前端预览
+
+基于 React + Vite + Tailwind，连接 C++ 网关实时对战（真实扑克牌面 + Linear 暗色主题）。
+
+| 大厅 | 抢地主 |
+| --- | --- |
+| ![Lobby](web/docs/screenshots/lobby.png) | ![Bidding](web/docs/screenshots/bidding.png) |
+
+| 出牌 | 结算 |
+| --- | --- |
+| ![Playing](web/docs/screenshots/playing.png) | ![Result](web/docs/screenshots/result.png) |
+
+运行方式见 [`web/README.md`](web/README.md)：网关 `./gateway 127.0.0.1 8787`，前端 `cd web && npm run dev`。
 
 #### 安装教程
 

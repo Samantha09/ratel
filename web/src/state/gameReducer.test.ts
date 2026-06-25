@@ -38,6 +38,19 @@ describe('gameReducer (real gateway contract)', () => {
     expect(apply([{ event: 'landlordElect', data: { nextClientId: -2 } }]).promptBid).toBe(false);
   });
 
+  it('gameStarting prompts bidding when I am the first bidder (no separate landlordElect is sent)', () => {
+    // Gateway sends only gameStarting (no landlordElect) when the human is the
+    // randomly-chosen first bidder, so the prompt must come from this event.
+    const mine = apply([
+      { event: 'gameStarting', data: { nextClientId: 0, pokers: [c(0), c(1)] } },
+    ]);
+    expect(mine.promptBid).toBe(true);
+    const theirs = apply([
+      { event: 'gameStarting', data: { nextClientId: -2, pokers: [c(0), c(1)] } },
+    ]);
+    expect(theirs.promptBid).toBe(false);
+  });
+
   it('landlordConfirm: opponent landlord -> I am a peasant, landlord plays first', () => {
     const s = apply([
       { event: 'gameStarting', data: { pokers: [c(0), c(1)] } },

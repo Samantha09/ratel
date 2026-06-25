@@ -6,8 +6,12 @@ export interface OverlayProps {
 
 export function Overlay({ children }: OverlayProps) {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl border border-hairline bg-surface-1 p-6 shadow-2xl">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="absolute inset-0 z-40 flex animate-fade-in items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
+    >
+      <div className="edge-highlight w-full max-w-md animate-scale-in rounded-xl border border-hairline-strong bg-surface-1 p-6 shadow-overlay">
         {children}
       </div>
     </div>

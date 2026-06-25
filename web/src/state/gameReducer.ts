@@ -108,13 +108,16 @@ function applyEvent(state: GameState, e: ServerEvent): GameState {
       return { ...state, clientId: e.data.clientId };
     case 'gameStarting':
       // The real gateway deals the player's 17 cards inside this event's `pokers`.
-      // `nextClientId` is whoever bids for the landlord first.
+      // `nextClientId` is whoever bids for the landlord first. When that first
+      // bidder is the human, the gateway sends NO separate `landlordElect`, so we
+      // must raise the bid prompt straight from this event.
       return {
         ...state,
         hand: e.data.pokers ? [...e.data.pokers] : state.hand,
         selected: [],
         phase: 'bidding',
         turnClientId: e.data.nextClientId ?? null,
+        promptBid: e.data.nextClientId != null && e.data.nextClientId === state.clientId,
       };
 
     case 'landlordElect': {
