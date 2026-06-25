@@ -106,14 +106,18 @@ class QueryServer : noncopyable
       ServerEventCode code = event_name_to_server_code(j.value("event", ""));
       MapHelper data = from_event_json(j);
 
-      // Find the ClientSide for this connection and add clientId to data
+      // Find the human ClientSide for this connection and add clientId to data.
+      // NOTE: in PVE the robots share the human's TcpConnection (see EventFuncs
+      // CODE_ROOM_CREATE_PVE), so we MUST match on ClientRole::PLAYER — otherwise
+      // a robot sharing this conn can be picked and the client's play/pass gets
+      // misattributed (e.g. pass -> ORDER_ERROR because it's not the robot's turn).
       bool found = false;
       LOG_DEBUG << "CLIENT_SIDE_MAP size: " << ServerContains::CLIENT_SIDE_MAP.size();
       for (const auto& entry : ServerContains::CLIENT_SIDE_MAP) {
-          LOG_DEBUG << "Checking ClientSide ID: " << entry.second->getId();
-          if (entry.second->getConn() == conn) {
+          if (entry.second->getConn() == conn &&
+              entry.second->getRole() == ClientRole::PLAYER) {
               data.put("clientId", entry.second->getId());
-              LOG_INFO << "Found ClientSide for connection: " << entry.second->getId();
+              LOG_INFO << "Found PLAYER ClientSide for connection: " << entry.second->getId();
               found = true;
               break;
           }

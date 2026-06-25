@@ -7,6 +7,7 @@ export interface SocketHandle {
 
 export function connectSocket(url: string, onEvent: (e: ServerEvent) => void): SocketHandle {
   const ws = new WebSocket(url);
+  ws.onopen = () => onEvent({ event: 'connected', data: {} } as ServerEvent);
   ws.onmessage = (ev) => {
     try {
       onEvent(JSON.parse(ev.data));

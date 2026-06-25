@@ -40,7 +40,7 @@ export function GameView({ state, actions }: GameViewProps) {
 
       <ActionBar
         myTurn={myTurn}
-        canPass={state.lastSell != null}
+        canPass={state.lastSell != null && state.lastSell.client !== state.clientId}
         onPlay={() => actions.play()}
         onPass={() => actions.pass()}
       />
@@ -49,9 +49,9 @@ export function GameView({ state, actions }: GameViewProps) {
       {state.promptBid && <BiddingOverlay onGrab={actions.grab} />}
       {state.phase === 'over' && state.result && (
         <ResultOverlay
-          winner={state.result.winner}
-          landlord={state.result.landlord}
-          myClientId={state.clientId}
+          winnerNickname={state.result.winnerNickname}
+          winnerType={state.result.winnerType}
+          myType={state.myType}
           onAgain={() => actions.reset()}
         />
       )}
