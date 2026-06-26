@@ -11,3 +11,10 @@ gateway
 # Crash dumps
 core
 core.*
+
+# Node
+node_modules/
+llm-agent/node_modules/
+
+# Secrets
+.env.local
