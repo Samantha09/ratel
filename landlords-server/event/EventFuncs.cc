@@ -173,8 +173,16 @@ void ServerEventListener_CODE_CLIENT_NICKNAME_SET(WsCodec *codec, const muduo::n
 
 	if (clientId != 0 && nickname != "")
 	{
-//		ServerContains::CLIENT_SIDE_MAP.at(clientId).setNickname(nickname);
-		ServerContains::getClient(clientId)->setNickname(nickname);
+		auto clientSide = ServerContains::getClient(clientId);
+		clientSide->setNickname(nickname);
+
+		// External robot registration: nickname prefix "robot_"
+		if (nickname.rfind("robot_", 0) == 0)
+		{
+			LOG_INFO << "Registering external robot: " << nickname << " id=" << clientId;
+			ServerContains::addRobot(clientSide);
+		}
+
 		pushDataToClient(codec, conn,
 					     ClientEventCode::CODE_SHOW_OPTIONS,
 						 MapHelper());
