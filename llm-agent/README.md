@@ -34,11 +34,17 @@ npm run smoke
 | `GATEWAY_URL` | gateway WebSocket 地址 | `ws://127.0.0.1:8787` |
 | `LLM_PROVIDER` | `minimax` / `anthropic` / `openai` / `ollama` / `mock` | `minimax` |
 | `MINIMAX_API_KEY` | MiniMax API Key | - |
-| `MINIMAX_BASE_URL` | MiniMax Anthropic-compatible 端点 | `https://api.minimaxi.com/anthropic` |
-| `MINIMAX_MODEL` | 模型名 | `MiniMax-M2.7` |
+| `MINIMAX_BASE_URL` | MiniMax OpenAI-compatible 端点 | `https://api.minimaxi.com/v1` |
+| `MINIMAX_MODEL` | 通用模型名 | `MiniMax-M2.7` |
+| `PLAY_MODEL` | 出牌专用模型(高速变体) | `MiniMax-M2.7-highspeed` |
+| `PLAY_TIMEOUT_MS` | 出牌 LLM 硬超时(毫秒),超时回退规则牌 | `20000` |
 | `LLM_TEMPERATURE` | 采样温度 | `0.3` |
 | `AGENT_COUNT` | 机器人数量 | `2` |
 | `AGENT_NICKNAME_PREFIX` | 机器人昵称前缀 | `robot` |
+
+## 文档
+
+- [出牌速度优化](docs/play-speed-optimization.md):机器人卡死/高延迟的根因分析与分层决策管线设计。
 
 ## 架构
 
