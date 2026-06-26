@@ -16,11 +16,11 @@ async function main(): Promise<void> {
   const agents = spawn('npm', ['run', 'dev'], {
     cwd: AGENT_DIR,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, LLM_PROVIDER: 'mock' },
+    env: { ...process.env, LLM_PROVIDER: process.env.LLM_PROVIDER ?? 'mock' },
   });
-  agents.stdout?.on('data', (d) => {});
-  agents.stderr?.on('data', (d) => {});
-  await sleep(1000);
+  agents.stdout?.on('data', (d) => console.log(`[agents] ${d.toString().trim()}`));
+  agents.stderr?.on('data', (d) => console.error(`[agents] ${d.toString().trim()}`));
+  await sleep(3000);
 
   const ws = new WebSocket('ws://127.0.0.1:8787');
   let done = false;
@@ -68,6 +68,11 @@ async function main(): Promise<void> {
 
     if (msg.event === 'gameStarting') {
       myHand = sortHand(msg.data.pokers ?? []);
+    }
+
+    if (msg.event === 'landlordElect' && msg.data.nextClientId === myClientId) {
+      // Human grabs in smoke test to ensure game progresses
+      ws.send(JSON.stringify({ event: 'landlordElect', data: { grab: true } }));
     }
 
     if (msg.event === 'landlordConfirm') {
@@ -119,6 +124,8 @@ async function main(): Promise<void> {
     if (msg.event === 'gameOver') done = true;
   });
 
+  const stallMs = parseInt(process.env.SMOKE_STALL_MS ?? '8000', 10);
+
   const stall = setInterval(() => {
     if (done) {
       clearInterval(stall);
@@ -127,7 +134,7 @@ async function main(): Promise<void> {
       gw.kill();
       process.exit(0);
     }
-    if (Date.now() - lastEventAt > 8000) {
+    if (Date.now() - lastEventAt > stallMs) {
       console.error('[smoke] STALLED');
       clearInterval(stall);
       ws.close();
