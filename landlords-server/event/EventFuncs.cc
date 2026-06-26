@@ -758,7 +758,7 @@ void ServerEventListener_CODE_GAME_LANDLORD_ELECT(WsCodec *codec, const muduo::n
 			}
 
 			ServerEventListener_CODE_GAME_STARTING(codec, conn,
-												   MapHelper().put("clienId", clientId));
+												   MapHelper().put("clientId", clientId));
 		}
 		else
 		{
