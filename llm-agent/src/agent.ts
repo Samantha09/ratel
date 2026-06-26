@@ -27,6 +27,7 @@ export class Agent {
       seats: [],
       turnClientId: -1,
       lastPlay: null,
+      consecutivePasses: 0,
       landlordId: null,
       myRole: null,
     };
@@ -94,6 +95,7 @@ export class Agent {
             nickname: event.data.clientNickname ?? String(event.data.clientId),
             cards: event.data.pokers,
           };
+          this.state.consecutivePasses = 0;
         }
         break;
       case 'playRedirect':
@@ -106,6 +108,11 @@ export class Agent {
         break;
       case 'playPass':
         this.state.turnClientId = event.data.nextClientId;
+        this.state.consecutivePasses++;
+        if (this.state.consecutivePasses >= 2) {
+          this.state.lastPlay = null;
+          this.state.consecutivePasses = 0;
+        }
         if (event.data.nextClientId === this.state.clientId) {
           void this.actPlay();
         }

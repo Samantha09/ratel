@@ -28,6 +28,7 @@ export interface AgentState {
   seats: SeatInfo[];
   turnClientId: number;
   lastPlay: LastPlay | null;
+  consecutivePasses: number;
   landlordId: number | null;
   myRole: 'LANDLORD' | 'PEASANT' | null;
 }
