@@ -20,6 +20,29 @@ class ServerContains {
 
 public:
 	/*
+	 * External robot pool
+	 */
+	static std::vector<std::shared_ptr<ClientSide>> ROBOT_POOL;
+
+	static void addRobot(const std::shared_ptr<ClientSide>& robot)
+	{
+		ROBOT_POOL.push_back(robot);
+	}
+
+	static std::shared_ptr<ClientSide> takeRobot()
+	{
+		if (ROBOT_POOL.empty()) return nullptr;
+		auto robot = ROBOT_POOL.back();
+		ROBOT_POOL.pop_back();
+		return robot;
+	}
+
+	static bool hasRobot(int count)
+	{
+		return ROBOT_POOL.size() >= static_cast<size_t>(count);
+	}
+
+	/*
 	 * Server port
 	 */
 	static int port;
