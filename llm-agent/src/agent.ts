@@ -1,7 +1,7 @@
 import { GameClient } from './game-client.js';
-import { AgentState, ServerEvent, Card } from './types.js';
+import { AgentState, ServerEvent } from './types.js';
 import { decideLandlord, decidePlay, LlmConfig } from './decision.js';
-import { validSells, detectSell, sortHand } from './rules.js';
+import { validSells, detectSell, sortHand, removeCards } from './rules.js';
 
 export interface AgentOptions {
   url: string;
@@ -10,11 +10,16 @@ export interface AgentOptions {
   onLog?: (msg: string) => void;
 }
 
+/** 单回合内 playError 的最大重试次数,超过则安全过牌,杜绝无限循环。 */
+const MAX_PLAY_RETRIES = 3;
+
 export class Agent {
   private client: GameClient;
   private state: AgentState;
   private readonly llmConfig: LlmConfig;
   private readonly onLog?: (msg: string) => void;
+  /** 当前回合已发生的 playError 次数;每次正常出牌回合开始时清零。 */
+  private playRetries = 0;
 
   constructor(opts: AgentOptions) {
     this.llmConfig = opts.llmConfig;
@@ -89,7 +94,11 @@ export class Agent {
         }
         break;
       case 'showPokers':
-        if (event.data.clientId !== this.state.clientId) {
+        if (event.data.clientId === this.state.clientId) {
+          // 自己出的牌:以 gateway 的广播为权威,从手牌移除,避免手牌与服务端不同步
+          // (否则下回合可能重复出已打出的牌 → gateway checkPokerIndex 失败 → 静默丢弃 → 卡死)
+          this.state.hand = removeCards(this.state.hand, event.data.pokers ?? []);
+        } else {
           this.state.lastPlay = {
             clientId: event.data.clientId,
             nickname: event.data.clientNickname ?? String(event.data.clientId),
@@ -120,7 +129,7 @@ export class Agent {
       case 'playError':
         this.log(`playError: ${event.data.code}`);
         if (this.state.phase === 'bidding') void this.actBidding();
-        else if (this.state.phase === 'playing') void this.actPlay();
+        else if (this.state.phase === 'playing') this.recoverFromPlayError(event.data.code);
         break;
       case 'gameOver':
         this.state.phase = 'over';
@@ -141,6 +150,7 @@ export class Agent {
   }
 
   private async actPlay(): Promise<void> {
+    this.playRetries = 0; // 新回合开始,清空 playError 重试计数
     try {
       const lastSell = this.state.lastPlay ? detectSell(this.state.lastPlay.cards) : null;
       const options = validSells(lastSell, this.state.hand);
@@ -164,5 +174,52 @@ export class Agent {
       this.log(`play error: ${(err as Error).message}`);
       this.client.sendPass();
     }
+  }
+
+  /**
+   * gateway 拒绝出牌时的恢复:gateway 是合法性的唯一权威,且拒绝后不会推进回合。
+   * 因此**绝不**重跑同一决策(否则与 gateway 形成无限循环,机器人卡死十几分钟),
+   * 而是直接采取一个保证合法的动作让回合前进:
+   *  - cantPass:不能过(我是首家)→ 出最小单张(领出单张必合法)
+   *  - 其它(太小/不匹配/无效/乱序)→ 跟牌时过牌(必合法);领出时出最小单张
+   *  - 超过重试上限 → 兜底过牌,彻底终止循环
+   */
+  private recoverFromPlayError(code: string): void {
+    // order = 非我回合(与 gateway 回合不同步):绝不再发任何东西,否则形成 order 风暴。
+    // 静待 gateway 的下一个正确回合信号(playRedirect/playPass)。
+    if (code === 'order') {
+      this.log('playError order(非我回合),不动作,等待正确回合信号');
+      return;
+    }
+    this.playRetries += 1;
+    if (this.playRetries > MAX_PLAY_RETRIES) {
+      this.log(`playError 超过 ${MAX_PLAY_RETRIES} 次,放弃本回合并过牌`);
+      this.client.sendPass();
+      return;
+    }
+    if (code === 'cantPass') {
+      this.state.lastPlay = null; // 我是首家
+      this.playSmallestSingle();
+      return;
+    }
+    if (this.state.lastPlay) {
+      // 跟牌被拒 → 过牌(跟牌时过牌总是合法,立即让回合前进)
+      this.log('出牌被拒,改为过牌');
+      this.client.sendPass();
+    } else {
+      // 领出被拒 → 出最小单张(领出单张总是合法)
+      this.log('领出被拒,改出最小单张');
+      this.playSmallestSingle();
+    }
+  }
+
+  /** 出手中最小的一张单牌——领出场景下保证合法,用于打破 playError 循环。 */
+  private playSmallestSingle(): void {
+    const sorted = sortHand(this.state.hand);
+    if (sorted.length === 0) {
+      this.client.sendPass();
+      return;
+    }
+    this.client.sendPlay([sorted[0]]);
   }
 }

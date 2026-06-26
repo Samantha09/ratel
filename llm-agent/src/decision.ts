@@ -26,6 +26,9 @@ const decisionSchema = z.object({
 
 type DecisionObject = z.infer<typeof decisionSchema>;
 
+/** 兜底超时:即使调用方漏传 timeoutMs,也绝不让 LLM 调用无界等待。 */
+const DEFAULT_DECISION_TIMEOUT_MS = 30000;
+
 /**
  * 从模型文本里提取首个完整的 JSON 对象。
  * MiniMax-M2.7 等推理模型不支持 OpenAI 的结构化输出（json_schema/tool 模式），
@@ -66,12 +69,17 @@ async function generateDecision(
   opts: { model?: string; timeoutMs?: number } = {}
 ): Promise<DecisionObject> {
   const provider = createProvider(config);
+  // 永远应用一个超时:有效正数用调用方的值,否则用兜底值
+  const timeoutMs =
+    typeof opts.timeoutMs === 'number' && Number.isFinite(opts.timeoutMs) && opts.timeoutMs > 0
+      ? opts.timeoutMs
+      : DEFAULT_DECISION_TIMEOUT_MS;
   const { text } = await generateText({
     model: provider(opts.model ?? config.model ?? 'MiniMax-M2.7'),
     prompt,
     temperature: config.temperature ?? 0.3,
     // 硬超时:网络挂死或推理过久时主动取消请求,由调用方回退规则牌
-    abortSignal: opts.timeoutMs ? AbortSignal.timeout(opts.timeoutMs) : undefined,
+    abortSignal: AbortSignal.timeout(timeoutMs),
   });
   return decisionSchema.parse(JSON.parse(extractJsonObject(text)));
 }
