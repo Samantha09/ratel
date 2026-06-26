@@ -11,7 +11,8 @@ describe('GameClient', () => {
     wss = new WebSocketServer({ port: 0 });
     await new Promise<void>((resolve) => wss.once('listening', resolve));
     const addr = wss.address();
-    url = `ws://127.0.0.1:${typeof addr === 'string' ? parseInt(addr.split(':').pop()!, 10) : addr.port}`;
+    if (addr === null || typeof addr === 'string') throw new Error('invalid server address');
+    url = `ws://127.0.0.1:${addr.port}`;
   });
 
   afterEach(() => {

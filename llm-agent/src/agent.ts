@@ -44,6 +44,10 @@ export class Agent {
     this.client.setNickname();
   }
 
+  close(): void {
+    this.client.close();
+  }
+
   private log(msg: string): void {
     this.onLog?.(`[${this.state.nickname}] ${msg}`);
   }

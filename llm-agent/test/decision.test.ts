@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { decidePlay, decideLandlord, LlmConfig } from '../src/decision.js';
 import { validSells } from '../src/rules.js';
-import { Card } from '../src/types.js';
+import { Card, PokerType } from '../src/types.js';
 
-const c = (level: number, type = 0): Card => ({ level, type });
+const c = (level: number, type: PokerType = 0): Card => ({ level, type });
 const mockConfig: LlmConfig = { provider: 'mock' };
 
 describe('decideLandlord mock', () => {

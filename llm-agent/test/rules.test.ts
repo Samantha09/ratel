@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { detectSell, canBeat, validSells, SellType, cardsInHand, sortHand } from '../src/rules.js';
-import { Card } from '../src/types.js';
+import { Card, PokerType } from '../src/types.js';
 
-const c = (level: number, type = 0): Card => ({ level, type });
+const c = (level: number, type: PokerType = 0): Card => ({ level, type });
 
 describe('detectSell', () => {
   it('detects rocket', () => {

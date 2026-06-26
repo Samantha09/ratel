@@ -78,7 +78,7 @@ export async function decidePlay(input: PlayPromptInput, config: LlmConfig): Pro
     return { action: 'pass', reason: object.reason };
   }
 
-  const chosen = object.cards ?? [];
+  const chosen = (object.cards as Card[] | undefined) ?? [];
   if (!cardsInHand(input.hand, chosen)) {
     return chooseFallback(input.options);
   }

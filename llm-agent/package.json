@@ -8,11 +8,11 @@
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
-    "ai": "^3.2.0",
-    "@ai-sdk/anthropic": "^0.0.30",
+    "@ai-sdk/anthropic": "^4.0.0",
+    "ai": "^7.0.2",
+    "dotenv": "^16.4.0",
     "ws": "^8.17.0",
-    "zod": "^3.23.0",
-    "dotenv": "^16.4.0"
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",
