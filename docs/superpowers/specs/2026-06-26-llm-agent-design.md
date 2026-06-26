@@ -22,7 +22,7 @@
 - 每个 robot 以普通玩家身份连接真实 C++ gateway，完成一局 PVE 完整流程。
 - 决策覆盖：抢地主（`landlordElect`）、出牌（`play`）、不出（`pass`）。
 - LLM 只负责策略选择，牌型合法性由本地规则库兜底。
-- 默认接入 OpenAI 兼容 API（环境变量配置），同时预留 Anthropic / Ollama 切换能力。
+- 默认接入 **MiniMax**（Anthropic Messages API 兼容端点，参考 `/home/san/PycharmProjects/finbot` 项目配置），同时保留 Anthropic / OpenAI / Ollama 切换能力。
 
 ### 2.2 非目标（第一版不做）
 
@@ -64,9 +64,10 @@
 
 ### 4.2 框架选择：Vercel AI SDK
 
-使用 `ai` + `@ai-sdk/openai`（或对应 provider 包）：
+使用 `ai` + `@ai-sdk/anthropic`（或对应 provider 包）：
 - 原生支持 `generateObject`，可强制返回固定 JSON schema。
-- 支持 OpenAI、Anthropic、Ollama 等 provider，切换仅需改环境变量和 provider 包。
+- MiniMax 提供 Anthropic Messages API 兼容端点（`https://api.minimaxi.com/anthropic`），用 `@ai-sdk/anthropic` 并覆盖 `baseURL` 即可接入。
+- 切换 OpenAI / Ollama 等 provider 仅需改环境变量和 provider 包。
 - 比 LangChain.js 轻量，适合单轮决策 Agent。
 
 ### 4.3 Gateway 改造子方案选择
@@ -249,10 +250,10 @@ const schema = z.object({
 
 ```bash
 GATEWAY_URL=ws://127.0.0.1:8787
-LLM_PROVIDER=openai          # openai | anthropic | ollama | mock
-OPENAI_API_KEY=sk-...
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o-mini
+LLM_PROVIDER=minimax         # minimax | anthropic | openai | ollama | mock
+MINIMAX_API_KEY=sk-...
+MINIMAX_BASE_URL=https://api.minimaxi.com/anthropic
+MINIMAX_MODEL=MiniMax-M2.7
 LLM_TEMPERATURE=0.3
 AGENT_COUNT=2
 AGENT_NICKNAME_PREFIX=robot
