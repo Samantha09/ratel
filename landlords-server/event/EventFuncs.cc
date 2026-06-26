@@ -593,72 +593,70 @@ void ServerEventListener_CODE_ROOM_CREATE_PVE(WsCodec *codec, const muduo::net::
 	assert(clientId != 0);
 	LOG_INFO << "clientId: " << clientId << "\n";
 	LOG_INFO << "clientSide.id: " << clientSide->getId() << "\n";
-	if (RobotDecisionMakers::contains(difficultyCoefficient))
+	if (!ServerContains::hasRobot(2))
 	{
-		LOG_INFO << "contains(difficultyCoefficient)";
-		std::shared_ptr<Room> room(new Room(ServerContains::getServerId()));
-		LOG_INFO << "room create";
-		room->setType(RoomType::PVE);
-		room->setStatus(RoomStatus::BLANK);
-		room->setRoomOwner(clientSide->getNickname());
-		room->getClientSideMap().insert(std::make_pair(clientSide->getId(), clientSide));
-		room->getClientSideList().push_back(clientSide);
-		room->setCurrentSellClient(clientSide->getId());
-		room->setDifficultyCoefficient(difficultyCoefficient);
-
-		LOG_INFO << "room init complete";
-
-		clientSide->setRoomId(room->getId());
-		// 不要返回局部对象的引用
-		ServerContains::addRoom(room);
-		std::shared_ptr<ClientSide> preClient = clientSide;
-		// Add robot;
-		for (int index = 1; index < 3; ++index)
-		{
-			LOG_INFO << index << "\n";
-			std::shared_ptr<ClientSide> robot(new ClientSide(- ServerContains::getClientId(), ClientStatus::PLAYING, conn));
-			// FIXME:
-//			std::string name = "robot_" + std::to_string(index);
-			robot->setNickname("robot_" + std::to_string(index));
-			robot->setRole(ClientRole::ROBOT);
-			robot->setPre(preClient);
-			robot->setRoomId(room->getId());
-			preClient->setNext(robot);
-			LOG_INFO << "robot->getRole(): " << int(robot->getRole());
-			room->getClientSideMap().insert(std::make_pair(robot->getId(), robot));
-			room->getClientSideList().push_back(robot);
-			preClient = robot;
-			ServerContains::CLIENT_SIDE_MAP.insert(std::make_pair(robot->getId(), robot));
-			LOG_INFO << "ClientSideList.size(): " << room->getClientSideList().size() << "\n";
-		}
-
-		preClient->setNext(clientSide);
-		clientSide->setPre(preClient);
-		LOG_DEBUG << "查看 CLIENT_SIDE_MAP 里存的 clientSide：";
-		for (auto & client: ServerContains::CLIENT_SIDE_MAP)
-		{
-			LOG_DEBUG << "client->id: " << client.second->getId();
-		}
-
-		LOG_DEBUG << "查看room中的 clientSide 信息：";
-		for (auto client: room->getClientSideList())
-		{
-			if (!client.expired())
-				LOG_DEBUG << "client.id of room: " << client.lock()->getId();
-		}
-
-		LOG_INFO << "ServerEventCode::CODE_GAME_STARTING";
-		ServerEventListener_CODE_GAME_STARTING(codec, conn,
-											   MapHelper().put("roomId", room->getId())
-											   	   	   	  .put("clientId", clientSide->getId()));
-		LOG_INFO << "ServerEventCode::CODE_GAME_STARTING";
-	}
-	else
-	{
+		LOG_WARN << "Not enough external robots in pool";
 		pushDataToClient(codec, conn,
-				         ClientEventCode::CODE_PVE_DIFFICULTY_NOT_SUPPORT,
+						 ClientEventCode::CODE_PVE_DIFFICULTY_NOT_SUPPORT,
 						 MapHelper());
+		return;
 	}
+
+	LOG_INFO << "clientId: " << clientId << "\n";
+	LOG_INFO << "clientSide.id: " << clientSide->getId() << "\n";
+
+	std::shared_ptr<Room> room(new Room(ServerContains::getServerId()));
+	LOG_INFO << "room create";
+	room->setType(RoomType::PVE);
+	room->setStatus(RoomStatus::BLANK);
+	room->setRoomOwner(clientSide->getNickname());
+	room->getClientSideMap().insert(std::make_pair(clientSide->getId(), clientSide));
+	room->getClientSideList().push_back(clientSide);
+	room->setCurrentSellClient(clientSide->getId());
+	room->setDifficultyCoefficient(difficultyCoefficient);
+
+	LOG_INFO << "room init complete";
+
+	clientSide->setRoomId(room->getId());
+	ServerContains::addRoom(room);
+	std::shared_ptr<ClientSide> preClient = clientSide;
+	for (int index = 1; index < 3; ++index)
+	{
+		LOG_INFO << index << "\n";
+		std::shared_ptr<ClientSide> robot = ServerContains::takeRobot();
+		if (!robot)
+			throw std::runtime_error("Robot pool unexpectedly empty");
+
+		robot->setRoomId(room->getId());
+		robot->setStatus(ClientStatus::PLAYING);
+		robot->setPre(preClient);
+		preClient->setNext(robot);
+		LOG_INFO << "robot->getId(): " << robot->getId();
+		room->getClientSideMap().insert(std::make_pair(robot->getId(), robot));
+		room->getClientSideList().push_back(robot);
+		preClient = robot;
+	}
+
+	preClient->setNext(clientSide);
+	clientSide->setPre(preClient);
+	LOG_DEBUG << "查看 CLIENT_SIDE_MAP 里存的 clientSide：";
+	for (auto & client: ServerContains::CLIENT_SIDE_MAP)
+	{
+		LOG_DEBUG << "client->id: " << client.second->getId();
+	}
+
+	LOG_DEBUG << "查看room中的 clientSide 信息：";
+	for (auto client: room->getClientSideList())
+	{
+		if (!client.expired())
+			LOG_DEBUG << "client.id of room: " << client.lock()->getId();
+	}
+
+	LOG_INFO << "ServerEventCode::CODE_GAME_STARTING";
+	ServerEventListener_CODE_GAME_STARTING(codec, conn,
+												   MapHelper().put("roomId", room->getId())
+																  .put("clientId", clientSide->getId()));
+	LOG_INFO << "ServerEventCode::CODE_GAME_STARTING";
 }
 
 void ServerEventListener_CODE_GAME_LANDLORD_ELECT(WsCodec *codec, const muduo::net::TcpConnectionPtr &conn,
