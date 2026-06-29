@@ -1,5 +1,5 @@
 {
-  "name": "ratel-llm-agent",
+  "name": "ratel-bot-client",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

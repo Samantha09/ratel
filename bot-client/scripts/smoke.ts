@@ -5,7 +5,7 @@ import { validSells, detectSell, sortHand } from '../src/rules.js';
 import { Card } from '../src/types.js';
 
 const GW_PATH = '/home/san/VsCodeProject/ratel/ratel/gateway';
-const AGENT_DIR = '/home/san/VsCodeProject/ratel/ratel/llm-agent';
+const AGENT_DIR = '/home/san/VsCodeProject/ratel/ratel/bot-client';
 
 async function main(): Promise<void> {
   const gw = spawn(GW_PATH, ['127.0.0.1', '8787'], { stdio: ['ignore', 'pipe', 'pipe'] });

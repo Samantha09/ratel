@@ -119,4 +119,19 @@ describe('Agent', () => {
     const secondCard = secondPlay.data.pokers[0];
     expect(secondCard.level).not.toBe(firstCard.level);
   });
+
+  it('gameOver 后重新 setNickname,把自己注册回机器人池', async () => {
+    const agent = new Agent({ url, nickname: 'robot_1', llmConfig: mockConfig });
+    await agent.start();
+    await new Promise((r) => setTimeout(r, 50));
+    received = []; // 清掉启动时的那次 setNickname
+
+    wss.clients.forEach((ws) =>
+      ws.send(JSON.stringify({ event: 'gameOver', data: { winnerNickname: 'x', winnerType: 'PEASANT' } })),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+
+    // 修复后:gameOver 应再次发送 setNickname(gateway 会 addRobot 重新入池)
+    expect(received).toContain(JSON.stringify({ event: 'setNickname', data: { nickname: 'robot_1' } }));
+  });
 });

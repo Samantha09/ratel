@@ -36,6 +36,10 @@ export interface PlayPromptInput {
   hand: Card[];
   lastPlay: LastPlay | null;
   options: Sell[];
+  /** 对手剩余牌数 {昵称或id: 张数};仅传给 Python play-agent 记牌,LLM prompt 不使用。 */
+  otherCounts?: Record<string, number>;
+  /** 已知底牌(仅地主可知);仅传给 Python play-agent,LLM prompt 不使用。 */
+  bottomCards?: Card[];
 }
 
 export interface LandlordPromptInput {

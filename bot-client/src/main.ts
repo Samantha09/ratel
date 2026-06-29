@@ -31,7 +31,13 @@ function main(): void {
     playModel: process.env.PLAY_MODEL ?? 'MiniMax-M2.7-highspeed',
     playTimeoutMs: parseInt(process.env.PLAY_TIMEOUT_MS ?? '20000', 10),
     temperature: parseFloat(process.env.LLM_TEMPERATURE ?? '0.3'),
+    // 出牌决策默认委托给 Python dou-dizhu-agent;空字符串=禁用(回退内置 LLM)。
+    playAgentUrl: (process.env.PLAY_AGENT_URL ?? 'http://127.0.0.1:8000').trim() || undefined,
   };
+
+  if (llmConfig.playAgentUrl) {
+    console.log('[main] play decisions via dou-dizhu-agent:', llmConfig.playAgentUrl);
+  }
 
   const agents: Agent[] = [];
   for (let i = 1; i <= count; i++) {

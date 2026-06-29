@@ -18,12 +18,16 @@ export class Agent {
   private state: AgentState;
   private readonly llmConfig: LlmConfig;
   private readonly onLog?: (msg: string) => void;
+  private readonly url: string;
   /** 当前回合已发生的 playError 次数;每次正常出牌回合开始时清零。 */
   private playRetries = 0;
+  /** close() 后置 true,阻止 onConnectionClosed 继续重连(干净退出/不崩溃)。 */
+  private stopped = false;
 
   constructor(opts: AgentOptions) {
     this.llmConfig = opts.llmConfig;
     this.onLog = opts.onLog;
+    this.url = opts.url;
     this.state = {
       clientId: -1,
       nickname: opts.nickname,
@@ -41,17 +45,54 @@ export class Agent {
       nickname: opts.nickname,
       onEvent: (e) => this.handleEvent(e),
       onError: (err) => this.log(`WS error: ${err.message}`),
-      onClose: () => this.log('WS closed'),
+      onClose: () => this.onConnectionClosed(),
     });
   }
 
   async start(): Promise<void> {
-    await this.client.connect();
+    try {
+      await this.client.connect();
+    } catch (err) {
+      // gateway 暂不可用(ECONNREFUSED 等):不要让 rejection 冒泡崩溃进程。
+      // 连接失败时 ws 也会触发 'close' → onConnectionClosed 会重建客户端并重试。
+      this.log(`connect failed: ${(err as Error).message}`);
+      return;
+    }
     this.client.setNickname();
   }
 
   close(): void {
+    this.stopped = true;
     this.client.close();
+  }
+
+  private onConnectionClosed(): void {
+    if (this.stopped) return; // 主动 close,不再重连
+    this.log('WS closed, reconnecting in 1s...');
+    this.state = {
+      clientId: -1,
+      nickname: this.state.nickname,
+      phase: 'lobby',
+      hand: [],
+      seats: [],
+      turnClientId: -1,
+      lastPlay: null,
+      consecutivePasses: 0,
+      landlordId: null,
+      myRole: null,
+    };
+    this.playRetries = 0;
+    // Recreate client so a fresh socket can be opened.
+    this.client = new GameClient({
+      url: this.url,
+      nickname: this.state.nickname,
+      onEvent: (e) => this.handleEvent(e),
+      onError: (err) => this.log(`WS error: ${err.message}`),
+      onClose: () => this.onConnectionClosed(),
+    });
+    setTimeout(() => {
+      void this.start();
+    }, 1000);
   }
 
   private log(msg: string): void {
@@ -134,6 +175,9 @@ export class Agent {
       case 'gameOver':
         this.state.phase = 'over';
         this.log(`game over, winner: ${event.data.winnerNickname} (${event.data.winnerType})`);
+        // gateway 的 takeRobot 把机器人从池子取走后不会归还;重新 setNickname 让 gateway
+        // 再次 addRobot 把自己注册回池子,否则打完一局人机就凑不齐机器人了。
+        this.client.setNickname();
         break;
     }
   }
@@ -154,6 +198,12 @@ export class Agent {
     try {
       const lastSell = this.state.lastPlay ? detectSell(this.state.lastPlay.cards) : null;
       const options = validSells(lastSell, this.state.hand);
+      // 对手剩余牌数:供 Python play-agent 记牌(排除自己)。
+      const otherCounts: Record<string, number> = {};
+      for (const seat of this.state.seats) {
+        if (seat.clientId === this.state.clientId) continue;
+        otherCounts[seat.nickname || String(seat.clientId)] = seat.cardsLeft;
+      }
       const decision = await decidePlay(
         {
           nickname: this.state.nickname,
@@ -161,6 +211,7 @@ export class Agent {
           hand: this.state.hand,
           lastPlay: this.state.lastPlay,
           options,
+          otherCounts,
         },
         this.llmConfig
       );

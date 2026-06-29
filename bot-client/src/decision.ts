@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Card, Decision } from './types.js';
 import { buildPlayPrompt, PlayPromptInput, LandlordPromptInput } from './prompt.js';
 import { Sell, SellType, cardsInHand, sortHand } from './rules.js';
+import { callPlayAgent } from './play-agent.js';
 
 export interface LlmConfig {
   provider: 'minimax' | 'anthropic' | 'openai' | 'ollama' | 'mock';
@@ -16,6 +17,12 @@ export interface LlmConfig {
   /** 出牌 LLM 调用的硬超时(毫秒);超时即回退规则牌,避免回合卡死。 */
   playTimeoutMs?: number;
   temperature?: number;
+  /**
+   * Python dou-dizhu-agent 的基地址(如 http://127.0.0.1:8000)。
+   * 一旦配置,出牌决策优先走它的 POST /play(本进程只做 WebSocket 壳与牌格式转换);
+   * 调用失败/超时/返回非法则回退到本地规则牌,机器人不会卡死。
+   */
+  playAgentUrl?: string;
 }
 
 const decisionSchema = z.object({
@@ -198,9 +205,35 @@ export async function decidePlay(input: PlayPromptInput, config: LlmConfig): Pro
     return fallback;
   }
 
+  // 第2层(优先):配置了 Python dou-dizhu-agent 时,多选回合走它的 POST /play。
+  // 返回的字符牌映射回真实手牌并复核合法性;失败/超时/非法 → 回退规则牌让回合前进。
+  if (config.playAgentUrl) {
+    try {
+      const result = await callPlayAgent(
+        {
+          nickname: input.nickname,
+          role: input.role,
+          hand: input.hand,
+          lastPlay: input.lastPlay,
+          otherCounts: input.otherCounts,
+          bottomCards: input.bottomCards,
+        },
+        { url: config.playAgentUrl, timeoutMs: config.playTimeoutMs }
+      );
+      if (result.action === 'pass') return { action: 'pass', reason: 'play-agent: pass' };
+      const chosen = result.cards ?? [];
+      if (!cardsInHand(input.hand, chosen)) return fallback;
+      const matched = findMatchingOption(chosen, options);
+      if (!matched) return fallback;
+      return { action: 'play', cards: matched.cards, reason: 'play-agent: play' };
+    } catch {
+      return fallback;
+    }
+  }
+
   if (config.provider === 'mock') return fallback;
 
-  // 第2层:多选策略回合调 LLM,加硬超时;超时/出错/解析失败→回退规则牌
+  // 第3层:未配置 play-agent 时回退到内置 LLM(MiniMax 等),加硬超时;超时/出错/解析失败→回退规则牌
   let object: DecisionObject;
   try {
     object = await generateDecision(config, buildPlayPrompt(input), {
