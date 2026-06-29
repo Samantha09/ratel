@@ -1,0 +1,22 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets / local env (含 LLM API key,切勿入库)
+.env
+.env.*
+
+# IDE and tool directories
+.claude/
+.idea/
+
+# SkillHub and temporary tool installations
+skills/
+.mermaid-cli/
