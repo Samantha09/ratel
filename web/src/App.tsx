@@ -15,7 +15,16 @@ export default function App() {
 
   if (state.phase === 'connecting' || state.phase === 'lobby') {
     if (state.lobbyScreen === 'menu') {
-      return <MainMenu onPve={actions.createRoom} onPvp={() => actions.gotoLobby('rooms')} />;
+      return (
+        <MainMenu
+          onPve={() => {
+            actions.clearLobbyError();
+            actions.createRoom();
+          }}
+          onPvp={() => actions.gotoLobby('rooms')}
+          lobbyError={state.lobbyError}
+        />
+      );
     }
     if (state.lobbyScreen === 'rooms') {
       return (
