@@ -125,7 +125,7 @@ export function GameView({ state, actions }: GameViewProps) {
         round={state.round}
       />
 
-      <main className="table">
+      <main className="game-table">
         <BottomStrip cards={state.bottomCards} />
         <CardTable state={state} />
 
