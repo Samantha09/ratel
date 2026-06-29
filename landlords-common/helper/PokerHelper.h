@@ -14,6 +14,7 @@
 #include "entity/PokerSell.h"
 #include <unordered_set>
 #include <algorithm>
+#include <random>
 #include "muduo/base/Logging.h"
 
 //class PokerSell;
@@ -66,7 +67,11 @@ public:
 	static std::vector<std::vector<Poker> > distributePoker()
 	{
 
-		std::random_shuffle(basePokers_.begin(), basePokers_.end());
+		// 用硬件熵播种的 mt19937 洗牌;旧代码 std::random_shuffle 退化为未播种的 rand(),
+		// 跨进程确定可复现(默认种子 1)→ 每次重启发牌都一样。std::random_shuffle 已在 C++17 移除。
+		std::random_device rd;
+		std::mt19937 g(rd());
+		std::shuffle(basePokers_.begin(), basePokers_.end(), g);
 		std::vector<std::vector<Poker> > pokersList;
 		std::vector<Poker> pokers1;
 		pokers1.reserve(17);
