@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Card } from '../types';
 import { GameState } from '../state/gameReducer';
+import { legalPlays, evaluate } from '../game/pokerEngine';
 import { CardTable } from '../game/CardTable';
+import { BottomStrip } from '../game/BottomStrip';
 import { Hand } from '../game/Hand';
 import { ActionBar } from '../game/ActionBar';
 import { BiddingOverlay } from '../game/BiddingOverlay';
@@ -9,10 +12,12 @@ import { Toast } from '../components/Toast';
 
 export interface GameActions {
   selectCard: (i: number) => void;
+  setSelection: (indices: number[]) => void;
   play: () => void;
   pass: () => void;
   grab: (g: boolean) => void;
   reset: () => void;
+  playAgain: () => void;
 }
 
 export interface GameViewProps {
@@ -28,7 +33,31 @@ const ERROR_TEXT: Record<string, string> = {
   cantPass: '轮到你出牌，不能不出',
 };
 
-function TopBar({ roomId }: { roomId: number | null }) {
+/** Map a list of cards to distinct indices in `hand` (consuming each match). */
+function indicesFor(hand: Card[], cards: Card[]): number[] {
+  const used = new Set<number>();
+  const out: number[] = [];
+  for (const c of cards) {
+    const i = hand.findIndex((h, idx) => !used.has(idx) && h.level === c.level && h.type === c.type);
+    if (i >= 0) {
+      used.add(i);
+      out.push(i);
+    }
+  }
+  return out;
+}
+
+function TopBar({
+  roomId,
+  baseScore,
+  multiplier,
+  round,
+}: {
+  roomId: number | null;
+  baseScore: number;
+  multiplier: number;
+  round: number;
+}) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -43,13 +72,13 @@ function TopBar({ roomId }: { roomId: number | null }) {
           🚪 房间 <b>{roomId ?? '—'}</b>
         </div>
         <div className="chip">
-          <span className="dot" />底分 <b>3</b>
+          <span className="dot" />底分 <b>{baseScore}</b>
         </div>
         <div className="chip">
-          倍数 <b>1</b>
+          倍数 <b>{multiplier}</b>
         </div>
         <div className="chip">
-          第 <b>1</b> 局
+          第 <b>{round}</b> 局
         </div>
       </div>
     </header>
@@ -61,19 +90,43 @@ export function GameView({ state, actions }: GameViewProps) {
   const canPass = state.lastSell != null && state.lastSell.client !== state.clientId;
   const myRole = state.myType;
 
-  // 提示按钮为装饰(无客户端合法牌引擎),点击给一条短暂 toast,不改动游戏逻辑。
-  const [hint, setHint] = useState<string | null>(null);
+  // 提示按钮:用客户端牌型引擎循环给出一组能压上家的合法牌。
+  const [hintMsg, setHintMsg] = useState<string | null>(null);
+  const [hintIdx, setHintIdx] = useState(0);
   useEffect(() => {
-    if (!hint) return;
-    const t = setTimeout(() => setHint(null), 1500);
+    if (!hintMsg) return;
+    const t = setTimeout(() => setHintMsg(null), 1500);
     return () => clearTimeout(t);
-  }, [hint]);
+  }, [hintMsg]);
+
+  const hintList = useMemo<Card[][]>(() => {
+    if (!myTurn) return [];
+    const leading = !state.lastSell || state.lastSell.client === state.clientId;
+    const last = leading ? null : evaluate(state.lastSell!.pokers);
+    return legalPlays(state.hand, last);
+  }, [myTurn, state.hand, state.lastSell, state.clientId]);
+
+  const onHint = () => {
+    if (!hintList.length) {
+      setHintMsg('没有能压上的牌，可以不出');
+      return;
+    }
+    const play = hintList[hintIdx % hintList.length];
+    setHintIdx((i) => i + 1);
+    actions.setSelection(indicesFor(state.hand, play));
+  };
 
   return (
     <>
-      <TopBar roomId={state.roomId} />
+      <TopBar
+        roomId={state.roomId}
+        baseScore={state.baseScore}
+        multiplier={state.multiplier}
+        round={state.round}
+      />
 
       <main className="table">
+        <BottomStrip cards={state.bottomCards} />
         <CardTable state={state} />
 
         <section className={`player-area ${myTurn ? 'active' : ''}`}>
@@ -100,20 +153,23 @@ export function GameView({ state, actions }: GameViewProps) {
             selectedCount={state.selected.length}
             onPlay={() => actions.play()}
             onPass={() => actions.pass()}
-            onHint={() => setHint('提示功能暂未开放')}
+            onHint={onHint}
           />
         </section>
       </main>
 
       {state.error && <Toast text={ERROR_TEXT[state.error] ?? '出牌错误'} />}
-      {!state.error && hint && <Toast text={hint} />}
+      {!state.error && hintMsg && <Toast text={hintMsg} />}
       {state.promptBid && <BiddingOverlay onGrab={actions.grab} />}
       {state.phase === 'over' && state.result && (
         <ResultOverlay
           winnerNickname={state.result.winnerNickname}
           winnerType={state.result.winnerType}
           myType={state.myType}
-          onAgain={() => actions.reset()}
+          bottomCards={state.bottomCards}
+          baseScore={state.baseScore}
+          multiplier={state.multiplier}
+          onAgain={() => actions.playAgain()}
         />
       )}
     </>

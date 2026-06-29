@@ -1,4 +1,4 @@
-import { GameState, SeatInfo } from '../state/gameReducer';
+import { GameState, SeatInfo, SeatPlay } from '../state/gameReducer';
 import { PlayingCard } from '../components/PlayingCard';
 
 function seatLabel(seat: SeatInfo, me: number | null, fallback: string): string {
@@ -55,51 +55,79 @@ function Seat({
   );
 }
 
+/** One column of the 3-column play zone: a seat's most recent play. */
+function PlayedColumn({
+  play,
+  isLeader,
+  isCenter,
+}: {
+  play: SeatPlay | undefined;
+  isLeader: boolean;
+  isCenter: boolean;
+}) {
+  if (play?.passed) {
+    return <div className="pass-bubble">不 出</div>;
+  }
+  if (play && play.pokers.length > 0) {
+    return (
+      <>
+        {isLeader && <div className="lead-tag">▲ 领出</div>}
+        <div className="mini-row">
+          {play.pokers.map((card, i) => (
+            <PlayingCard
+              key={`${card.level}:${card.type}:${i}`}
+              card={card}
+              variant="mini"
+              style={{ animationDelay: `${i * 0.04}s` }}
+            />
+          ))}
+        </div>
+      </>
+    );
+  }
+  // Nothing played yet — the center column shows the table emblem.
+  if (isCenter) {
+    return (
+      <div className="center-emblem">
+        <div className="ring">♠</div>
+        <span style={{ fontSize: 11, letterSpacing: 2 }}>出牌区</span>
+      </div>
+    );
+  }
+  return null;
+}
+
 export interface CardTableProps {
   state: GameState;
 }
 
 export function CardTable({ state }: CardTableProps) {
-  const opponents = state.seats.filter((s) => s.id !== state.clientId);
+  const me = state.clientId;
+  const opponents = state.seats.filter((s) => s.id !== me);
   const left = opponents[0] ?? null;
   const right = opponents[1] ?? null;
   const landlordKnown = state.landlord != null;
+  const leaderId = state.lastSell?.client ?? null;
 
-  const lastSell = state.lastSell;
-  const passed = lastSell != null && lastSell.pokers.length === 0;
-  const hasPlay = lastSell != null && lastSell.pokers.length > 0;
-  const leaderName = lastSell?.nickname || '上家';
+  const { playsBySeat } = state;
 
   return (
     <>
-      {/* 出牌区:三列布局,中列显示最近一手(沿用原有 lastSell 语义) */}
+      {/* 三列出牌区:左对手 / 我(中) / 右对手,各显示该座最近一手 */}
       <div className="play-zone">
-        <div className="played" id="play-left" />
-        <div className="played" id="play-center">
-          {hasPlay ? (
-            <>
-              <div className="lead-tag">▲ {leaderName}</div>
-              <div className="mini-row">
-                {lastSell!.pokers.map((card, i) => (
-                  <PlayingCard
-                    key={`${card.level}:${card.type}:${i}`}
-                    card={card}
-                    variant="mini"
-                    style={{ animationDelay: `${i * 0.04}s` }}
-                  />
-                ))}
-              </div>
-            </>
-          ) : passed ? (
-            <div className="pass-bubble">不 出</div>
-          ) : (
-            <div className="center-emblem">
-              <div className="ring">♠</div>
-              <span style={{ fontSize: 11, letterSpacing: 2 }}>出牌区</span>
-            </div>
-          )}
+        <div className="played" id="play-left">
+          <PlayedColumn play={left ? playsBySeat[left.id] : undefined} isLeader={left?.id === leaderId} isCenter={false} />
         </div>
-        <div className="played" id="play-right" />
+        <div className="played" id="play-center">
+          <PlayedColumn
+            play={me != null ? playsBySeat[me] : undefined}
+            isLeader={me === leaderId}
+            isCenter
+          />
+        </div>
+        <div className="played" id="play-right">
+          <PlayedColumn play={right ? playsBySeat[right.id] : undefined} isLeader={right?.id === leaderId} isCenter={false} />
+        </div>
       </div>
 
       <Seat

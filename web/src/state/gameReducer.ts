@@ -1,4 +1,5 @@
 import { Card, ClientInfoMsg, PlayErrorReason, ServerEvent } from '../types';
+import { evaluate, isBomb, isKingBomb } from '../game/pokerEngine';
 
 export interface SeatInfo {
   id: number;
@@ -13,6 +14,14 @@ export interface LastSell {
   pokers: Card[];
   type: number;
 }
+
+/** A seat's most recent action rendered in the 3-column play zone. */
+export interface SeatPlay {
+  pokers: Card[];
+  passed: boolean;
+}
+
+export type LobbyScreen = 'nickname' | 'menu' | 'rooms' | 'waiting';
 
 export interface GameState {
   phase: 'connecting' | 'lobby' | 'bidding' | 'playing' | 'over';
@@ -31,13 +40,24 @@ export interface GameState {
   error: PlayErrorReason | null;
   lobbyError: string | null;
   promptBid: boolean;
+
+  // --- prototype-parity additions ---
+  bottomCards: Card[]; // 3 底牌(broadcast to everyone in landlordConfirm)
+  multiplier: number; // 倍数,本局 1 起,炸弹/王炸 ×2(客户端计算)
+  baseScore: number; // 底分(常量 3;gateway 合同无此字段)
+  round: number; // 局数,首局 1,"再来一局" +1
+  playsBySeat: Record<number, SeatPlay>; // 每座最近一手,驱动三列出牌区
+  lobbyScreen: LobbyScreen; // 大厅子屏
 }
 
 export type Action =
   | { type: 'server'; event: ServerEvent }
   | { type: 'select'; index: number }
+  | { type: 'setSelection'; indices: number[] }
   | { type: 'clearError' }
   | { type: 'clearLobbyError' }
+  | { type: 'gotoLobby'; screen: LobbyScreen }
+  | { type: 'bumpRound' }
   | { type: 'reset' };
 
 export const initialState: GameState = {
@@ -57,6 +77,13 @@ export const initialState: GameState = {
   error: null,
   lobbyError: null,
   promptBid: false,
+
+  bottomCards: [],
+  multiplier: 1,
+  baseScore: 3,
+  round: 1,
+  playsBySeat: {},
+  lobbyScreen: 'nickname',
 };
 
 function toggle(selected: number[], index: number): number[] {
@@ -88,18 +115,30 @@ function seatsFromInfos(infos: ClientInfoMsg[]): SeatInfo[] {
   }));
 }
 
+/** True if the played cards form a bomb or rocket (doubles the multiplier). */
+function isMultiplierBoost(pokers: Card[]): boolean {
+  const s = evaluate(pokers);
+  return !!s && (isBomb(s) || isKingBomb(s));
+}
+
 export function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'select':
       return { ...state, selected: toggle(state.selected, action.index) };
+    case 'setSelection':
+      return { ...state, selected: action.indices };
     case 'clearError':
       return { ...state, error: null };
     case 'clearLobbyError':
       return { ...state, lobbyError: null };
+    case 'gotoLobby':
+      return { ...state, lobbyScreen: action.screen };
+    case 'bumpRound':
+      return { ...state, round: state.round + 1 };
     case 'reset':
-      // Full reset to a fresh "connecting" state; useGame reconnects the socket,
-      // and the incoming `connected` event moves us back to the lobby.
-      return { ...initialState };
+      // Replay a game: preserve nickname + round, clear everything else. The new
+      // WS connection receives a fresh clientId via `idSet`; useGame reconnects.
+      return { ...initialState, nickname: state.nickname, round: state.round };
     case 'server':
       return applyEvent(state, action.event);
   }
@@ -108,7 +147,12 @@ export function gameReducer(state: GameState, action: Action): GameState {
 function applyEvent(state: GameState, e: ServerEvent): GameState {
   switch (e.event) {
     case 'connected':
-      return { ...state, connected: true, phase: 'lobby' };
+      return {
+        ...state,
+        connected: true,
+        phase: 'lobby',
+        lobbyScreen: state.nickname ? 'menu' : 'nickname',
+      };
     case 'idSet':
       return { ...state, clientId: e.data.clientId };
     case 'gameStarting':
@@ -123,6 +167,9 @@ function applyEvent(state: GameState, e: ServerEvent): GameState {
         phase: 'bidding',
         turnClientId: e.data.nextClientId ?? null,
         promptBid: e.data.nextClientId != null && e.data.nextClientId === state.clientId,
+        bottomCards: [],
+        multiplier: 1,
+        playsBySeat: {},
       };
 
     case 'landlordElect': {
@@ -134,16 +181,22 @@ function applyEvent(state: GameState, e: ServerEvent): GameState {
     case 'landlordConfirm': {
       const landlord = e.data.landlordId;
       const iAmLandlord = landlord === state.clientId;
-      // The landlord receives the 3 bottom cards.
+      // The landlord receives the 3 bottom cards into their hand.
       const hand = iAmLandlord && e.data.additionalPokers
         ? sortHand([...state.hand, ...e.data.additionalPokers])
         : state.hand;
+      // `additionalPokers` is broadcast to every player — capture it for the
+      // bottom-strip reveal regardless of role.
+      const bottomCards = e.data.additionalPokers ? [...e.data.additionalPokers] : state.bottomCards;
       return {
         ...state,
         phase: 'playing',
         landlord,
         promptBid: false,
         hand,
+        bottomCards,
+        multiplier: 1,
+        playsBySeat: {},
         turnClientId: landlord, // landlord plays first
         myType: iAmLandlord ? 'LANDLORD' : 'PEASANT',
         seats: state.seats.map((s) => ({ ...s, isLandlord: s.id === landlord })),
@@ -170,6 +223,8 @@ function applyEvent(state: GameState, e: ServerEvent): GameState {
         lastSell: played.length
           ? { client: who, nickname: e.data.clientNickname ?? '', pokers: played, type: 0 }
           : state.lastSell,
+        playsBySeat: { ...state.playsBySeat, [who]: { pokers: played, passed: false } },
+        multiplier: isMultiplierBoost(played) ? state.multiplier * 2 : state.multiplier,
         error: null,
       };
     }
@@ -201,7 +256,12 @@ function applyEvent(state: GameState, e: ServerEvent): GameState {
       // A player (robot) passed. No playRedirect follows when the next turn is
       // the human, so advance the turn here from `nextClientId`; the standing
       // lead (lastSell) is unchanged.
-      return { ...state, turnClientId: e.data.nextClientId, error: null };
+      return {
+        ...state,
+        turnClientId: e.data.nextClientId,
+        playsBySeat: { ...state.playsBySeat, [e.data.clientId]: { pokers: [], passed: true } },
+        error: null,
+      };
 
     case 'playError':
       return { ...state, error: e.data.code };

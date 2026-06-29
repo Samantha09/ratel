@@ -13,10 +13,12 @@ const card = (level: number, type: Card['type'] = 1): Card => ({ type, level });
 const noop = () => {};
 const actions: GameActions = {
   selectCard: noop,
+  setSelection: noop,
   play: noop,
   pass: noop,
   grab: noop,
   reset: noop,
+  playAgain: noop,
 };
 
 // 11-card hand, sorted, with a trio + pair selected for a lively shot.
@@ -51,6 +53,14 @@ const base: GameState = {
   error: null,
   lobbyError: null,
   promptBid: false,
+  bottomCards: [card(12, 1), card(13, 0), card(14, 0)],
+  multiplier: 2,
+  baseScore: 3,
+  round: 1,
+  playsBySeat: {
+    [-1]: { pokers: [card(7, 3), card(7, 1)], passed: false },
+  },
+  lobbyScreen: 'menu',
 };
 
 const biddingState: GameState = {

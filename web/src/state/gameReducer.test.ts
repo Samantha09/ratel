@@ -150,4 +150,58 @@ describe('gameReducer (real gateway contract)', () => {
     s = gameReducer(s, { type: 'server', event: { event: 'connected', data: {} } });
     expect(s.phase).toBe('lobby');
   });
+
+  it('landlordConfirm stores bottomCards for everyone (not just the landlord)', () => {
+    const s = apply([
+      { event: 'gameStarting', data: { pokers: [c(0), c(1)] } },
+      { event: 'landlordConfirm', data: { landlordId: -2, additionalPokers: [c(5), c(6), c(7)] } },
+    ]);
+    expect(s.myType).toBe('PEASANT');
+    expect(s.hand).toHaveLength(2); // peasant hand unchanged
+    expect(s.bottomCards).toHaveLength(3); // ...but the bottom strip is visible
+  });
+
+  it('showPokers doubles the multiplier on a bomb', () => {
+    let s = apply([{ event: 'gameStarting', data: { pokers: [c(0), c(1), c(2)] } }]);
+    s = gameReducer(s, {
+      type: 'server',
+      event: { event: 'showPokers', data: { clientId: -2, pokers: [c(5), c(5, 2), c(5, 3), c(5, 4)] } },
+    });
+    expect(s.multiplier).toBe(2);
+    expect(s.playsBySeat[-2]?.passed).toBe(false);
+    expect(s.playsBySeat[-2]?.pokers).toHaveLength(4);
+  });
+
+  it('a normal play leaves the multiplier at 1', () => {
+    let s = apply([{ event: 'gameStarting', data: { pokers: [c(0)] } }]);
+    s = gameReducer(s, { type: 'server', event: { event: 'showPokers', data: { clientId: -2, pokers: [c(5)] } } });
+    expect(s.multiplier).toBe(1);
+  });
+
+  it('playPass marks the seat as passed in playsBySeat', () => {
+    let s = apply([{ event: 'gameStarting', data: { pokers: [c(0)] } }]);
+    s = gameReducer(s, { type: 'server', event: { event: 'playPass', data: { clientId: -2, nextClientId: 0 } } });
+    expect(s.playsBySeat[-2]?.passed).toBe(true);
+    expect(s.playsBySeat[-2]?.pokers).toEqual([]);
+  });
+
+  it('reset preserves nickname + round but clears the connection', () => {
+    let s = apply([{ event: 'connected', data: {} }, { event: 'idSet', data: { clientId: 7 } }], 7);
+    s = { ...s, nickname: 'alice', round: 3 };
+    s = gameReducer(s, { type: 'reset' });
+    expect(s.phase).toBe('connecting');
+    expect(s.clientId).toBeNull();
+    expect(s.nickname).toBe('alice'); // preserved
+    expect(s.round).toBe(3); // preserved
+  });
+
+  it('bumpRound increments round', () => {
+    const s = gameReducer({ ...initialState, round: 2 }, { type: 'bumpRound' });
+    expect(s.round).toBe(3);
+  });
+
+  it('gotoLobby switches the lobby sub-screen', () => {
+    const s = gameReducer(initialState, { type: 'gotoLobby', screen: 'rooms' });
+    expect(s.lobbyScreen).toBe('rooms');
+  });
 });
