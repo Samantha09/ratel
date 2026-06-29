@@ -1,5 +1,4 @@
 import { Overlay } from '../components/Overlay';
-import { Button } from '../components/Button';
 
 export interface ResultOverlayProps {
   winnerNickname: string;
@@ -13,26 +12,16 @@ export function ResultOverlay({ winnerNickname, winnerType, myType, onAgain }: R
   const iWon = myType != null && myType === winnerType;
 
   return (
-    <Overlay>
-      <div className="flex flex-col items-center text-center">
-        <div
-          className={[
-            'flex h-16 w-16 items-center justify-center rounded-full text-3xl',
-            iWon ? 'bg-success/15' : 'bg-danger/15',
-          ].join(' ')}
-        >
-          {iWon ? '🏆' : '💔'}
-        </div>
-        <h2 className={`mt-4 font-display text-3xl font-semibold ${iWon ? 'text-success' : 'text-danger'}`}>
-          {iWon ? '胜利' : '失败'}
-        </h2>
-        <p className="mt-1.5 text-sm text-ink-subtle">
-          {landlordWon ? '地主获胜' : '农民获胜'}
-          {winnerNickname ? ` · ${winnerNickname}` : ''}
-        </p>
-        <Button className="mt-6 w-full" size="lg" onClick={onAgain}>
+    <Overlay panelClassName="result">
+      <div className="eyebrow">{landlordWon ? '地 主 获 胜' : '农 民 获 胜'}</div>
+      <h2 className={iWon ? 'win' : 'lose'}>{iWon ? '胜 利' : '失 败'}</h2>
+      <p>
+        {landlordWon ? '地主' : '农民'}阵营获胜{winnerNickname ? ` · ${winnerNickname}` : ''}
+      </p>
+      <div className="cta-row">
+        <button type="button" className="btn btn-primary" onClick={onAgain}>
           再来一局
-        </Button>
+        </button>
       </div>
     </Overlay>
   );

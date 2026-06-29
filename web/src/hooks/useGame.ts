@@ -27,6 +27,7 @@ export function useGame() {
     play: (pokers: Card[]) => send({ event: 'play', data: { pokers } }),
     pass: () => send({ event: 'pass', data: {} }),
     selectCard: (index: number) => dispatch({ type: 'select', index }),
+    clearLobbyError: () => dispatch({ type: 'clearLobbyError' }),
     reset: () => {
       dispatch({ type: 'reset' });
       setGen((g) => g + 1); // reconnect for a fresh game

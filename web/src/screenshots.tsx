@@ -49,6 +49,7 @@ const base: GameState = {
   myType: 'PEASANT',
   result: null,
   error: null,
+  lobbyError: null,
   promptBid: false,
 };
 

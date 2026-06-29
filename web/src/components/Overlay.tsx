@@ -2,18 +2,14 @@ import { ReactNode } from 'react';
 
 export interface OverlayProps {
   children: ReactNode;
+  /** Extra class on the panel, e.g. `result`. */
+  panelClassName?: string;
 }
 
-export function Overlay({ children }: OverlayProps) {
+export function Overlay({ children, panelClassName = '' }: OverlayProps) {
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="absolute inset-0 z-40 flex animate-fade-in items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
-    >
-      <div className="edge-highlight w-full max-w-md animate-scale-in rounded-xl border border-hairline-strong bg-surface-1 p-6 shadow-overlay">
-        {children}
-      </div>
+    <div role="dialog" aria-modal="true" className="overlay">
+      <div className={`panel ${panelClassName}`.trim()}>{children}</div>
     </div>
   );
 }

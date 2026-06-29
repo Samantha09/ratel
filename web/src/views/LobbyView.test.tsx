@@ -8,8 +8,8 @@ describe('LobbyView', () => {
     const onCreate = vi.fn();
     const user = userEvent.setup();
     render(<LobbyView connecting={false} onCreate={onCreate} />);
-    await user.type(screen.getByPlaceholderText('输入昵称'), 'san');
-    await user.click(screen.getByRole('button', { name: '开始人机对战' }));
+    await user.type(screen.getByPlaceholderText('请输入昵称'), 'san');
+    await user.click(screen.getByRole('button', { name: '开始游戏' }));
     expect(onCreate).toHaveBeenCalledWith('san');
   });
 });

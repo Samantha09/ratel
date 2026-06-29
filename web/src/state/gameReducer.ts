@@ -29,6 +29,7 @@ export interface GameState {
   myType: 'LANDLORD' | 'PEASANT' | null;
   result: { winnerNickname: string; winnerType: string } | null;
   error: PlayErrorReason | null;
+  lobbyError: string | null;
   promptBid: boolean;
 }
 
@@ -36,6 +37,7 @@ export type Action =
   | { type: 'server'; event: ServerEvent }
   | { type: 'select'; index: number }
   | { type: 'clearError' }
+  | { type: 'clearLobbyError' }
   | { type: 'reset' };
 
 export const initialState: GameState = {
@@ -53,6 +55,7 @@ export const initialState: GameState = {
   myType: null,
   result: null,
   error: null,
+  lobbyError: null,
   promptBid: false,
 };
 
@@ -91,6 +94,8 @@ export function gameReducer(state: GameState, action: Action): GameState {
       return { ...state, selected: toggle(state.selected, action.index) };
     case 'clearError':
       return { ...state, error: null };
+    case 'clearLobbyError':
+      return { ...state, lobbyError: null };
     case 'reset':
       // Full reset to a fresh "connecting" state; useGame reconnects the socket,
       // and the incoming `connected` event moves us back to the lobby.
@@ -200,6 +205,12 @@ function applyEvent(state: GameState, e: ServerEvent): GameState {
 
     case 'playError':
       return { ...state, error: e.data.code };
+
+    case 'pveDifficultyNotSupport':
+      return {
+        ...state,
+        lobbyError: '机器人资源不足，请重启 gateway 和 LLM agent 后再试',
+      };
 
     case 'gameOver':
       return {

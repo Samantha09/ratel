@@ -12,11 +12,12 @@ describe('PlayingCard', () => {
 
   it('renders the big joker', () => {
     render(<PlayingCard card={{ type: 0, level: 14 }} />);
-    expect(screen.getByText('大王')).toBeInTheDocument();
+    expect(screen.getByText('JOKER')).toBeInTheDocument();
+    expect(screen.getByText('大')).toBeInTheDocument();
   });
 
   it('applies a selected class when selected', () => {
     const { container } = render(<PlayingCard card={{ type: 1, level: 0 }} selected />);
-    expect(container.firstChild).toHaveClass('-translate-y-2');
+    expect(container.firstChild).toHaveClass('selected');
   });
 });

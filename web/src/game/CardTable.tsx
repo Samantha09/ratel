@@ -1,67 +1,57 @@
 import { GameState, SeatInfo } from '../state/gameReducer';
 import { PlayingCard } from '../components/PlayingCard';
 
-function seatLabel(seat: SeatInfo, me: number | null): string {
+function seatLabel(seat: SeatInfo, me: number | null, fallback: string): string {
   if (seat.id === me) return '我';
   if (seat.nickname) return seat.nickname;
-  return seat.id === 1 ? '左家' : '右家';
+  return fallback;
 }
 
-function initials(name: string): string {
-  return name.trim().slice(0, 1).toUpperCase() || '?';
-}
+function Seat({
+  seat,
+  side,
+  emoji,
+  fallbackName,
+  landlordKnown,
+  active,
+}: {
+  seat: SeatInfo | null;
+  side: 'left' | 'right';
+  emoji: string;
+  fallbackName: string;
+  landlordKnown: boolean;
+  active: boolean;
+}) {
+  const name = seat ? seatLabel(seat, null, fallbackName) : fallbackName;
+  const count = seat?.cardsLeft ?? 17;
+  const isLandlord = seat?.isLandlord ?? false;
+  const fanCount = Math.min(count, 20);
 
-function OpponentChip({ seat, me, active }: { seat: SeatInfo; me: number | null; active: boolean }) {
-  const name = seatLabel(seat, me);
   return (
-    <div
-      className={[
-        'edge-highlight flex min-w-[150px] items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors',
-        active ? 'animate-pulse-ring border-primary bg-surface-2' : 'border-hairline bg-surface-1',
-      ].join(' ')}
-    >
-      <div
-        className={[
-          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
-          seat.isLandlord ? 'bg-landlord/15 text-landlord' : 'bg-surface-3 text-ink-muted',
-        ].join(' ')}
-        aria-hidden="true"
-      >
-        {initials(name)}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-medium text-ink">{name}</span>
-          {seat.isLandlord && (
-            <span className="rounded-pill bg-landlord/15 px-1.5 py-px text-[10px] font-medium text-landlord">
-              地主
-            </span>
-          )}
-        </div>
-        <div className="mt-0.5 flex items-center gap-1.5">
-          <span aria-hidden="true" className="text-xs text-ink-tertiary">🂠</span>
-          <span className="font-mono text-xs text-ink-subtle">{seat.cardsLeft} 张</span>
-          {active && <span className="ml-1 text-[11px] font-medium text-primary-hover">思考中…</span>}
+    <section className={`seat seat-${side} ${active ? 'active' : ''}`}>
+      <div className="avatar-row">
+        <div className="avatar">{emoji}</div>
+        <div className="who">
+          <h3>{name}</h3>
+          <div className="role">
+            {landlordKnown ? (
+              <span className={`role-badge ${isLandlord ? '' : 'farmer'}`}>{isLandlord ? '👑 地主' : '农民'}</span>
+            ) : (
+              ''
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function PlaceholderChip({ name }: { name: string }) {
-  return (
-    <div className="flex min-w-[150px] items-center gap-3 rounded-lg border border-hairline bg-surface-1/70 px-3 py-2.5">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-3 text-sm font-semibold text-ink-subtle">
-        {name.slice(-1)}
+      <div className="count-pill">
+        余牌 <b>{count}</b>
       </div>
-      <div className="min-w-0 flex-1">
-        <span className="truncate text-sm font-medium text-ink-muted">{name}</span>
-        <div className="mt-0.5 flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" />
-          <span className="text-xs text-success">准备就绪</span>
-        </div>
+      <div className="back-fan">
+        {Array.from({ length: fanCount }, (_, i) => (
+          <div key={i} className="cb" />
+        ))}
       </div>
-    </div>
+      <div className="thinking">思考中…</div>
+    </section>
   );
 }
 
@@ -71,50 +61,63 @@ export interface CardTableProps {
 
 export function CardTable({ state }: CardTableProps) {
   const opponents = state.seats.filter((s) => s.id !== state.clientId);
+  const left = opponents[0] ?? null;
+  const right = opponents[1] ?? null;
+  const landlordKnown = state.landlord != null;
+
   const lastSell = state.lastSell;
   const passed = lastSell != null && lastSell.pokers.length === 0;
+  const hasPlay = lastSell != null && lastSell.pokers.length > 0;
+  const leaderName = lastSell?.nickname || '上家';
 
   return (
-    <div className="flex h-full w-full flex-col justify-between gap-4">
-      <div className="flex w-full flex-wrap justify-center gap-4">
-        {opponents.length > 0 ? (
-          opponents.map((s) => (
-            <OpponentChip key={s.id} seat={s} me={state.clientId} active={state.turnClientId === s.id} />
-          ))
-        ) : (
-          // PvE always has two robots; the gateway only sends their identities
-          // once play starts, so show them as ready until real seats arrive.
-          <>
-            <PlaceholderChip name="robot_1" />
-            <PlaceholderChip name="robot_2" />
-          </>
-        )}
-      </div>
-
-      <div className="grid flex-1 place-items-center">
-        <div className="flex min-h-[8.5rem] w-full max-w-xl flex-col items-center justify-center gap-3 rounded-xl border border-hairline/70 bg-canvas/40 px-5 py-4 shadow-[inset_0_2px_12px_rgba(0,0,0,0.45)]">
-          {lastSell && !passed ? (
+    <>
+      {/* 出牌区:三列布局,中列显示最近一手(沿用原有 lastSell 语义) */}
+      <div className="play-zone">
+        <div className="played" id="play-left" />
+        <div className="played" id="play-center">
+          {hasPlay ? (
             <>
-              <span className="text-[11px] uppercase tracking-[0.18em] text-ink-tertiary">
-                {lastSell.nickname || '上家'} 出牌
-              </span>
-              <div className="flex flex-wrap justify-center gap-1.5">
-                {lastSell.pokers.map((card, i) => (
-                  <PlayingCard key={`${card.level}:${card.type}:${i}`} card={card} mini />
+              <div className="lead-tag">▲ {leaderName}</div>
+              <div className="mini-row">
+                {lastSell!.pokers.map((card, i) => (
+                  <PlayingCard
+                    key={`${card.level}:${card.type}:${i}`}
+                    card={card}
+                    variant="mini"
+                    style={{ animationDelay: `${i * 0.04}s` }}
+                  />
                 ))}
               </div>
             </>
           ) : passed ? (
-            <span className="rounded-pill border border-hairline bg-surface-2 px-3 py-1 text-xs text-ink-subtle">
-              {lastSell?.nickname || '对手'} 选择不出
-            </span>
+            <div className="pass-bubble">不 出</div>
           ) : (
-            <span className="text-sm text-ink-tertiary">等待出牌…</span>
+            <div className="center-emblem">
+              <div className="ring">♠</div>
+              <span style={{ fontSize: 11, letterSpacing: 2 }}>出牌区</span>
+            </div>
           )}
         </div>
+        <div className="played" id="play-right" />
       </div>
 
-      <div className="h-1" aria-hidden="true" />
-    </div>
+      <Seat
+        seat={left}
+        side="left"
+        emoji="🤖"
+        fallbackName="阿尔法"
+        landlordKnown={landlordKnown}
+        active={left != null && state.turnClientId === left.id}
+      />
+      <Seat
+        seat={right}
+        side="right"
+        emoji="👾"
+        fallbackName="贝塔"
+        landlordKnown={landlordKnown}
+        active={right != null && state.turnClientId === right.id}
+      />
+    </>
   );
 }

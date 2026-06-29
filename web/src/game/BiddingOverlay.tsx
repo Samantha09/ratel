@@ -1,30 +1,32 @@
 import { Overlay } from '../components/Overlay';
-import { Button } from '../components/Button';
 
 export interface BiddingOverlayProps {
   onGrab: (g: boolean) => void;
 }
 
+/**
+ * 叫分阶段面板。后端只有 grab/不抢二元决策,1/2/3 分为视觉装饰:
+ * 不叫 → onGrab(false);1/2/3 分 → onGrab(true)。
+ */
 export function BiddingOverlay({ onGrab }: BiddingOverlayProps) {
   return (
     <Overlay>
-      <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-landlord/15 text-2xl">👑</div>
-        <div>
-          <h2 className="font-display text-xl font-semibold text-ink">抢地主</h2>
-          <p className="text-xs text-ink-subtle">叫牌阶段</p>
-        </div>
-      </div>
-      <p className="mt-4 text-sm text-ink-muted">
-        是否抢做地主？地主独自对抗两名农民，多得 <span className="font-mono text-ink">3</span> 张底牌，赢牌得分翻倍。
-      </p>
-      <div className="mt-6 flex gap-3">
-        <Button variant="secondary" size="lg" className="flex-1" onClick={() => onGrab(false)}>
-          不抢
-        </Button>
-        <Button size="lg" className="flex-1" onClick={() => onGrab(true)}>
-          抢地主
-        </Button>
+      <div className="eyebrow">叫 分 阶 段</div>
+      <h2 style={{ fontSize: 30 }}>是否叫地主？</h2>
+      <p>叫分越高，赢牌得分越高。地主独得三张底牌，单挑两位农民。</p>
+      <div className="cta-row bid">
+        <button type="button" className="btn btn-ghost" onClick={() => onGrab(false)}>
+          不叫
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={() => onGrab(true)}>
+          1 分
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={() => onGrab(true)}>
+          2 分
+        </button>
+        <button type="button" className="btn btn-primary" onClick={() => onGrab(true)}>
+          3 分
+        </button>
       </div>
     </Overlay>
   );

@@ -9,6 +9,8 @@ export default function App() {
     return (
       <LobbyView
         connecting={state.phase === 'connecting'}
+        lobbyError={state.lobbyError}
+        onClearLobbyError={actions.clearLobbyError}
         onCreate={(nickname) => {
           actions.setNickname(nickname);
           actions.createRoom();

@@ -41,6 +41,7 @@ export type ServerEvent =
   | { event: 'playRedirect'; data: { pokers?: Card[]; lastSellPokers?: Card[]; lastSellClientId?: number; sellClientId: number; sellClientNickname?: string; clientInfos?: ClientInfoMsg[] } }
   | { event: 'playPass'; data: { clientId: number; clientNickname?: string; nextClientId: number; nextClientNickname?: string } }
   | { event: 'playError'; data: { code: PlayErrorReason } }
+  | { event: 'pveDifficultyNotSupport'; data: Record<string, never> }
   | { event: 'gameOver'; data: { winnerNickname: string; winnerType: string } }
   | { event: 'landlordCycle'; data: Record<string, unknown> };
 
