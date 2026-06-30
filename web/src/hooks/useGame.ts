@@ -33,7 +33,10 @@ export function useGame() {
   }, [state.connected]);
 
   const actions = {
-    setNickname: (nickname: string) => send({ event: 'setNickname', data: { nickname } }),
+    setNickname: (nickname: string) => {
+      dispatch({ type: 'setNickname', nickname });
+      send({ event: 'setNickname', data: { nickname } });
+    },
     createRoom: () => send({ event: 'createRoomPve', data: {} }),
     gotoLobby: (screen: LobbyScreen) => dispatch({ type: 'gotoLobby', screen }),
     grab: (g: boolean) => send({ event: 'landlordElect', data: { grab: g } }),

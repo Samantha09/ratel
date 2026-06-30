@@ -57,6 +57,7 @@ export type Action =
   | { type: 'clearError' }
   | { type: 'clearLobbyError' }
   | { type: 'gotoLobby'; screen: LobbyScreen }
+  | { type: 'setNickname'; nickname: string }
   | { type: 'bumpRound' }
   | { type: 'reset' };
 
@@ -133,6 +134,8 @@ export function gameReducer(state: GameState, action: Action): GameState {
       return { ...state, lobbyError: null };
     case 'gotoLobby':
       return { ...state, lobbyScreen: action.screen };
+    case 'setNickname':
+      return { ...state, nickname: action.nickname };
     case 'bumpRound':
       return { ...state, round: state.round + 1 };
     case 'reset':

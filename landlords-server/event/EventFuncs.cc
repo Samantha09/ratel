@@ -172,7 +172,14 @@ void ServerEventListener_CODE_CLIENT_NICKNAME_SET(WsCodec *codec, const muduo::n
 	int clientId = data.get("clientId", 0);
 //	assert(clientId != 0);
 	std::string nickname = data.get("nickName", "");
-	assert(!nickname.empty());
+	if (nickname.empty())
+	{
+		LOG_WARN << "Received empty nickname from clientId=" << clientId << ", ignoring";
+		pushDataToClient(codec, conn,
+						 ClientEventCode::CODE_CLIENT_NICKNAME_SET,
+						 MapHelper().put("invalidLength", 0));
+		return;
+	}
 
 	if (clientId != 0 && nickname != "")
 	{
