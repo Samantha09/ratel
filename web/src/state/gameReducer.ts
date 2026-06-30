@@ -6,6 +6,7 @@ export interface SeatInfo {
   nickname: string;
   cardsLeft: number;
   isLandlord: boolean;
+  position?: 'up' | 'down' | '';
 }
 
 export interface LastSell {
@@ -113,6 +114,7 @@ function seatsFromInfos(infos: ClientInfoMsg[]): SeatInfo[] {
     nickname: ci.nickname,
     cardsLeft: ci.cardsLeft,
     isLandlord: ci.type === 0, // 0 = LANDLORD
+    position: ci.position as SeatInfo['position'],
   }));
 }
 

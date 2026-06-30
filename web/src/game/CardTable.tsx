@@ -59,11 +59,9 @@ function Seat({
 function PlayedColumn({
   play,
   isLeader,
-  isCenter,
 }: {
   play: SeatPlay | undefined;
   isLeader: boolean;
-  isCenter: boolean;
 }) {
   if (play?.passed) {
     return <div className="pass-bubble">不 出</div>;
@@ -85,15 +83,6 @@ function PlayedColumn({
       </>
     );
   }
-  // Nothing played yet — the center column shows the table emblem.
-  if (isCenter) {
-    return (
-      <div className="center-emblem">
-        <div className="ring">♠</div>
-        <span style={{ fontSize: 11, letterSpacing: 2 }}>出牌区</span>
-      </div>
-    );
-  }
   return null;
 }
 
@@ -104,8 +93,11 @@ export interface CardTableProps {
 export function CardTable({ state }: CardTableProps) {
   const me = state.clientId;
   const opponents = state.seats.filter((s) => s.id !== me);
-  const left = opponents[0] ?? null;
-  const right = opponents[1] ?? null;
+
+  // Gateway position: "up" = upstream/previous player (left in counter-clockwise layout),
+  // "down" = downstream/next player (right). Empty = me.
+  const left = opponents.find((s) => s.position === 'up') ?? opponents[0] ?? null;
+  const right = opponents.find((s) => s.position === 'down') ?? opponents[1] ?? null;
   const landlordKnown = state.landlord != null;
   const leaderId = state.lastSell?.client ?? null;
 
@@ -113,20 +105,19 @@ export function CardTable({ state }: CardTableProps) {
 
   return (
     <>
-      {/* 三列出牌区:左对手 / 我(中) / 右对手,各显示该座最近一手 */}
+      {/* 两侧出牌区: 只显示两个对手的最近一手; 自己的出牌显示在 player-area 自己这边 */}
       <div className="play-zone">
         <div className="played" id="play-left">
-          <PlayedColumn play={left ? playsBySeat[left.id] : undefined} isLeader={left?.id === leaderId} isCenter={false} />
+          <PlayedColumn play={left ? playsBySeat[left.id] : undefined} isLeader={left?.id === leaderId} />
         </div>
         <div className="played" id="play-center">
-          <PlayedColumn
-            play={me != null ? playsBySeat[me] : undefined}
-            isLeader={me === leaderId}
-            isCenter
-          />
+          <div className="center-emblem">
+            <div className="ring">♠</div>
+            <span style={{ fontSize: 11, letterSpacing: 2 }}>出牌区</span>
+          </div>
         </div>
         <div className="played" id="play-right">
-          <PlayedColumn play={right ? playsBySeat[right.id] : undefined} isLeader={right?.id === leaderId} isCenter={false} />
+          <PlayedColumn play={right ? playsBySeat[right.id] : undefined} isLeader={right?.id === leaderId} />
         </div>
       </div>
 

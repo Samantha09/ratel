@@ -9,6 +9,7 @@ import { ActionBar } from '../game/ActionBar';
 import { BiddingOverlay } from '../game/BiddingOverlay';
 import { ResultOverlay } from '../game/ResultOverlay';
 import { Toast } from '../components/Toast';
+import { PlayingCard } from '../components/PlayingCard';
 
 export interface GameActions {
   selectCard: (i: number) => void;
@@ -90,6 +91,10 @@ export function GameView({ state, actions }: GameViewProps) {
   const canPass = state.lastSell != null && state.lastSell.client !== state.clientId;
   const myRole = state.myType;
 
+  const me = state.clientId;
+  const myPlay = me != null ? state.playsBySeat[me] : undefined;
+  const iAmLeader = me === (state.lastSell?.client ?? null);
+
   // 提示按钮:用客户端牌型引擎循环给出一组能压上家的合法牌。
   const [hintMsg, setHintMsg] = useState<string | null>(null);
   const [hintIdx, setHintIdx] = useState(0);
@@ -131,6 +136,29 @@ export function GameView({ state, actions }: GameViewProps) {
 
         <section className={`player-area ${myTurn ? 'active' : ''}`}>
           {myTurn && <div className="turn-hint">{canPass ? '轮到你，请大过上家或不出' : '你来出牌 · 你是本轮的领出者'}</div>}
+
+          {/* 自己出的牌显示在自己这边，而不是中间出牌区 */}
+          {myPlay && (
+            <div className="my-play">
+              {myPlay.passed ? (
+                <div className="pass-bubble">不 出</div>
+              ) : (
+                <>
+                  {iAmLeader && <div className="lead-tag">▲ 领出</div>}
+                  <div className="mini-row">
+                    {myPlay.pokers.map((card, i) => (
+                      <PlayingCard
+                        key={`${card.level}:${card.type}:${i}`}
+                        card={card}
+                        variant="mini"
+                        style={{ animationDelay: `${i * 0.04}s` }}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="player-meta">
             <div className="avatar">🧑‍✈️</div>

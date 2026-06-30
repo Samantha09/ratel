@@ -477,6 +477,15 @@ body {
   font-size: 15px;
 }
 
+.my-play {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 90px;
+  margin-bottom: 8px;
+  position: relative;
+}
+
 .hand {
   display: flex;
   justify-content: center;
