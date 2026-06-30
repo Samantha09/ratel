@@ -56,6 +56,11 @@ export class GameClient {
   }
 
   setNickname(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      // Socket not open (e.g. gateway closed it after gameOver). The reconnect
+      // path re-sends setNickname on a fresh socket, so skipping here is safe.
+      return;
+    }
     this.send({ event: 'setNickname', data: { nickname: this.nickname } });
   }
 

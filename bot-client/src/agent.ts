@@ -175,8 +175,10 @@ export class Agent {
       case 'gameOver':
         this.state.phase = 'over';
         this.log(`game over, winner: ${event.data.winnerNickname} (${event.data.winnerType})`);
-        // gateway 的 takeRobot 把机器人从池子取走后不会归还;重新 setNickname 让 gateway
-        // 再次 addRobot 把自己注册回池子,否则打完一局人机就凑不齐机器人了。
+        // gateway 的 takeRobot 取走机器人后不会归还;重新 setNickname 让 gateway 再次
+        // addRobot 把自己注册回池子,否则下一局凑不齐机器人。gateway 只关闭赢家连接,
+        // 所以输家必须靠这里重新注册(setNickname 在 socket 关闭时会安全跳过,赢家改由
+        // onConnectionClosed 重连兜底)。
         this.client.setNickname();
         break;
     }
