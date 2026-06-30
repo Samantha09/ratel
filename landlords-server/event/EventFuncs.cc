@@ -138,9 +138,12 @@ void ServerEventListener_CODE_ROOM_JOIN(WsCodec *codec, const muduo::net::TcpCon
 					  .put("roomClientCount", room->getClientSideList().size());
 				for (std::weak_ptr<ClientSide> client: roomClientList)
 				{
-					LOG_DEBUG << "client 的 id: " << client.lock()->getId();
 					if (client.expired())
-						throw std::runtime_error("玩家已退出");
+					{
+						LOG_WARN << "Client expired while broadcasting roomJoinSuccess, skipping";
+						continue;
+					}
+					LOG_DEBUG << "client 的 id: " << client.lock()->getId();
 					pushDataToClient(codec,
 									 client.lock()->getConn(),
 									 ClientEventCode::CODE_ROOM_JOIN_SUCCESS,
@@ -223,7 +226,10 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_PASS(WsCodec *codec, const muduo::
 			for (std::weak_ptr<ClientSide> c: room->getClientSideList())
 			{
 				if (c.expired())
-					throw std::runtime_error("ClientId 不存在");
+				{
+					LOG_WARN << "Client expired while broadcasting playPass, skipping";
+					continue;
+				}
 				std::shared_ptr<ClientSide> client = c.lock();
 				MapHelper result;
 				result.put("clientId", clientSide->getId())
@@ -239,17 +245,32 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_PASS(WsCodec *codec, const muduo::
 									 ClientEventCode::CODE_GAME_POKER_PLAY_PASS,
 									 result);
 				}
-				else
+			}
+
+			// 过牌后轮到人类需要下发 playRedirect（含 clientInfos），否则 web 看不到对手信息
+			if (turnClient->getRole() == ClientRole::PLAYER)
+			{
+				MapHelper redirectData;
+				PokerSell lastShell = room->getLastPokerShell();
+				std::vector<Poker> lastPokers;
+				if (lastShell.getSellPokers() != nullptr)
 				{
-					if (client->getId() == turnClient->getId())
-					{
-						LOG_DEBUG << "pass 里的逻辑";
-						std::thread robot(std::bind(robot_elect_landlord, codec, conn,
-										  	  	    ClientEventCode::CODE_GAME_POKER_PLAY,
-													turnClient.get(), data));
-						robot.join();
-					}
+					lastPokers = *lastShell.getSellPokers();
 				}
+				redirectData.put("clientId", turnClient->getId())
+							.put("lastSellPokers", lastPokers)
+							.put("lastSellClientId", room->getLastSellClient());
+				ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(codec,
+																			  turnClient->getConn(),
+																			  redirectData);
+			}
+			else
+			{
+				LOG_DEBUG << "pass 里的逻辑";
+				std::thread robot(std::bind(robot_elect_landlord, codec, conn,
+												    ClientEventCode::CODE_GAME_POKER_PLAY,
+													turnClient.get(), data));
+				robot.join();
 			}
 			// notifyWatcherPlayPass(room, clientSide);
 			LOG_WARN << "notifyWatcherPlayPass(room, clientSide);";
@@ -383,7 +404,10 @@ void ServerEventListener_CODE_GAME_POKER_PLAY(WsCodec *codec, const muduo::net::
 					for (std::weak_ptr<ClientSide> c: room->getClientSideList())
 					{
 						if (c.expired())
-							throw std::runtime_error("ClientID 不存在");
+						{
+							LOG_WARN << "Client expired while broadcasting showPokers, skipping";
+							continue;
+						}
 						std::shared_ptr<ClientSide> client(c.lock());
 						if (client->getRole() == ClientRole::PLAYER)
 						{
@@ -408,7 +432,10 @@ void ServerEventListener_CODE_GAME_POKER_PLAY(WsCodec *codec, const muduo::net::
 						for (std::weak_ptr<ClientSide> c: room->getClientSideList())
 						{
 							if (c.expired())
-								throw std::runtime_error("ClientID 不存在");
+							{
+								LOG_WARN << "Client expired while broadcasting gameOver, skipping";
+								continue;
+							}
 							std::shared_ptr<ClientSide> client(c.lock());
 							if (client->getRole() == ClientRole::PLAYER)
 							{
@@ -521,8 +548,17 @@ void ServerEventListener_CODE_GAME_STARTING(WsCodec *codec, const muduo::net::Tc
 	// Push information about the robber
 	int startGrabIndex = rand() % 3;   // 随机找个人开始选地主
 	std::weak_ptr<ClientSide> sgc = roomClientList.at(startGrabIndex);
+	// 如果随机选中的客户端已过期（如机器人断开），顺延找一个可用的
+	for (int i = 0; i < (int)roomClientList.size() && sgc.expired(); ++i)
+	{
+		startGrabIndex = (startGrabIndex + 1) % roomClientList.size();
+		sgc = roomClientList.at(startGrabIndex);
+	}
 	if (sgc.expired())
-		throw std::runtime_error("ClientSide 不存在");
+	{
+		LOG_ERROR << "No available client to start landlord elect";
+		return;
+	}
 	std::shared_ptr<ClientSide> startGrabClient = sgc.lock();
 	room->setCurrentSellClient(startGrabClient->getId());
 
@@ -535,7 +571,10 @@ void ServerEventListener_CODE_GAME_STARTING(WsCodec *codec, const muduo::net::Tc
 	for (std::weak_ptr<ClientSide> c: roomClientList)
 	{
 		if (c.expired())
-			throw std::runtime_error("ClientID 不存在");
+		{
+			LOG_WARN << "Client expired while broadcasting gameStarting, skipping";
+			continue;
+		}
 		std::shared_ptr<ClientSide> client(c.lock());
 		client->setType(ClientType::PEASANT);   // 农民
 
@@ -700,7 +739,10 @@ void ServerEventListener_CODE_GAME_LANDLORD_ELECT(WsCodec *codec, const muduo::n
 		for (std::weak_ptr<ClientSide> c: room->getClientSideList())
 		{
 			if (c.expired())
-				throw std::runtime_error("ClientId 不存在");
+			{
+				LOG_WARN << "Client expired while broadcasting landlordConfirm, skipping";
+				continue;
+			}
 			std::shared_ptr<ClientSide> client = c.lock();
 			MapHelper result;
 			result.put("roomId", room->getId())
@@ -747,7 +789,10 @@ void ServerEventListener_CODE_GAME_LANDLORD_ELECT(WsCodec *codec, const muduo::n
 			for (std::weak_ptr<ClientSide> client: room->getClientSideList())
 			{
 				if (client.expired())
-					throw std::runtime_error("ClientSide 不存在");
+				{
+					LOG_WARN << "Client expired while broadcasting landlordCycle, skipping";
+					continue;
+				}
 				if (client.lock()->getRole() == ClientRole::PLAYER)
 				{
 					pushDataToClient(codec,
@@ -776,7 +821,10 @@ void ServerEventListener_CODE_GAME_LANDLORD_ELECT(WsCodec *codec, const muduo::n
 			for (std::weak_ptr<ClientSide> c: room->getClientSideList())
 			{
 				if (c.expired())
-					throw std::runtime_error("ClientID 不存在");
+				{
+					LOG_WARN << "Client expired while broadcasting landlordElect, skipping";
+					continue;
+				}
 				std::shared_ptr<ClientSide> client = c.lock();
 				if (client->getRole() == ClientRole::PLAYER)
 				{
@@ -821,7 +869,10 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(WsCodec *codec, const mud
 //	ClientSide &clientSide = *(ServerContains::CLIENT_SIDE_MAP.find(clientId)->second);
 	std::weak_ptr<ClientSide> cs = ServerContains::getClient(clientId);
 	if (cs.expired())
-		throw std::runtime_error("ClientId 不存在");
+	{
+		LOG_WARN << "Target client expired in playRedirect, clientId=" << clientId;
+		return;
+	}
 	std::shared_ptr<ClientSide> clientSide = cs.lock();
 	LOG_INFO << "clientId: " << clientId;
 	// FIXME
@@ -836,7 +887,10 @@ void ServerEventListener_CODE_GAME_POKER_PLAY_REDIRECT(WsCodec *codec, const mud
 	for (std::weak_ptr<ClientSide> c: room->getClientSideList())
 	{
 		if (c.expired())
-			throw std::runtime_error("ClientSide 不存在");
+		{
+			LOG_WARN << "Client expired while building clientInfos, skipping";
+			continue;
+		}
 		std::shared_ptr<ClientSide> client = c.lock();
 		std::string p;
 		if (clientSide->getPre() != nullptr)
