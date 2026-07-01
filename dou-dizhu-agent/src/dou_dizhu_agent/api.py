@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from dou_dizhu_agent.counter import CardCounter
 from dou_dizhu_agent.models import PlayRequest, PlayResponse
 from dou_dizhu_agent.rules import generate_candidates
-from dou_dizhu_agent.selector import select
+from dou_dizhu_agent.selector import resolve
 from dou_dizhu_agent.strategy import MockStrategy, StrategyModule, create_strategy
 
 logger = logging.getLogger(__name__)
@@ -32,9 +32,9 @@ def _load_strategy() -> StrategyModule:
 
     if not api_key:
         logger.warning(
-            "No LLM_API_KEY or MINIMAX_API_KEY configured; using deterministic mock strategy."
+            "No LLM_API_KEY or MINIMAX_API_KEY configured; using deterministic rule fallback."
         )
-        return MockStrategy(choice=0)
+        return MockStrategy(play="invalid")
 
     return create_strategy(
         provider=provider,
@@ -81,29 +81,25 @@ def create_app() -> FastAPI:
             history=request.history,
         )
 
-        # Generate all legal candidates.
+        # Generate all legal candidates (used for legality check + fallback only;
+        # 不再喂给 LLM——实测枚举清单会诱发模型逐项比较 → 思考爆 max_tokens → 截断)。
         candidates = generate_candidates(request.hand, request.last_play)
 
-        # Ask strategy module to choose.
-        choice = strategy.choose(
-            candidates=candidates,
+        # Ask the LLM to play directly (returns cards / 'pass' / 'invalid').
+        raw = strategy.choose(
             hand=request.hand,
             role=request.role,
             last_play=request.last_play,
             other_counts=request.other_players_card_count,
-            bottom_cards=request.bottom_cards,
             card_counter_summary=card_counter.summary(),
         )
 
         logger.info(
-            "Player %s chose %r from %d candidates",
-            request.player_id,
-            choice,
-            len(candidates),
+            "Player %s raw=%r candidates=%d", request.player_id, raw, len(candidates)
         )
 
-        # Map choice to concrete play, with fallback on invalid choices.
-        action, cards = select(candidates, choice)
+        # Validate against the candidate set; illegal/empty/pass-as-lead → rule fallback.
+        action, cards = resolve(candidates, raw, request.last_play)
 
         return PlayResponse(action=action, cards=cards)
 
