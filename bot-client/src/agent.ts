@@ -13,6 +13,14 @@ export interface AgentOptions {
 /** 单回合内 playError 的最大重试次数,超过则安全过牌,杜绝无限循环。 */
 const MAX_PLAY_RETRIES = 3;
 
+/** 最小"思考"时延(毫秒)。用于把"没真思考"的快速决策(无牌可管的瞬过、唯一牌强制出)
+ *  补足到像在思考,避免瞬出既不自然、又暴露"我啥也管不上"的手牌信息。
+ *  真正走 LLM 的决策本身已 8–20s,不会被这个最小值拖慢。 */
+const MIN_THINK_MS_MIN = 1500;
+const MIN_THINK_MS_MAX = 3000;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 export class Agent {
   private client: GameClient;
   private state: AgentState;
@@ -197,6 +205,7 @@ export class Agent {
 
   private async actPlay(): Promise<void> {
     this.playRetries = 0; // 新回合开始,清空 playError 重试计数
+    const t0 = Date.now();
     try {
       const lastSell = this.state.lastPlay ? detectSell(this.state.lastPlay.cards) : null;
       const options = validSells(lastSell, this.state.hand);
@@ -217,6 +226,10 @@ export class Agent {
         },
         this.llmConfig
       );
+      // 补足最小思考时间:仅对返回过快的决策(瞬过/强制出牌)生效,LLM 决策不受影响。
+      const elapsed = Date.now() - t0;
+      const minThink = MIN_THINK_MS_MIN + Math.random() * (MIN_THINK_MS_MAX - MIN_THINK_MS_MIN);
+      if (elapsed < minThink) await sleep(minThink - elapsed);
       this.log(`play decision: ${decision.action}, ${decision.reason}`);
       if (decision.action === 'play' && decision.cards) {
         this.client.sendPlay(decision.cards);
